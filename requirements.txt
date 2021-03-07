@@ -7,7 +7,8 @@ networkx==2.4
 numpy==1.17.3
 pandas==0.25.3
 Pillow==6.2.1
-pyramid-arima==0.8.1
+# pyramid-arima==0.8.1 # should use pip install pmdarima
+# see https://github.com/alkaline-ml/pmdarima/issues/36#issuecomment-562934276
 python-dateutil==2.8.1
 pytz==2019.3
 PyYAML==5.1.2

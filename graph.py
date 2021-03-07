@@ -13,7 +13,7 @@ import metpy.calc as mpcalc
 from bresenham import bresenham
 
 
-city_fp = os.path.join(proj_dir, 'data/city.txt')
+city_fp = os.path.join(proj_dir, 'data/city_import.txt')
 altitude_fp = os.path.join(proj_dir, 'data/altitude.npy')
 
 

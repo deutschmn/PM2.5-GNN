@@ -49,11 +49,12 @@ class GraphGNN(nn.Module):
         city_direc = self.edge_attr_[:,:,1]
 
         theta = torch.abs(city_direc - src_wind_direc)
-        edge_weight = F.relu(3 * src_wind_speed * torch.cos(theta) / city_dist)
+        edge_weight = F.relu(3 * src_wind_speed * torch.cos(theta) / city_dist) # eq. (4)
         edge_weight = edge_weight.to(self.device)
         edge_attr_norm = self.edge_attr_norm[None, :, :].repeat(node_src.size(0), 1, 1).to(self.device)
         out = torch.cat([node_src, node_target, edge_attr_norm, edge_weight[:,:,None]], dim=-1)
 
+        # neighbourhood aggregation = message passing
         out = self.edge_mlp(out)
         out_add = scatter_add(out, edge_target, dim=1, dim_size=x.size(1))
         # out_sub = scatter_sub(out, edge_src, dim=1, dim_size=x.size(1))
@@ -80,7 +81,7 @@ class PM25_GNN(nn.Module):
         self.out_dim = 1
         self.gnn_out = 13
 
-        self.fc_in = nn.Linear(self.in_dim, self.hid_dim)
+        self.fc_in = nn.Linear(self.in_dim, self.hid_dim) # Doesn't seem to be used?
         self.graph_gnn = GraphGNN(self.device, edge_index, edge_attr, self.in_dim, self.gnn_out, wind_mean, wind_std)
         self.gru_cell = GRUCell(self.in_dim + self.gnn_out, self.hid_dim)
         self.fc_out = nn.Linear(self.hid_dim, self.out_dim)

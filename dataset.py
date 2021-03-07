@@ -87,10 +87,15 @@ class HazeData(data.Dataset):
         metero_idx = [metero_var.index(var) for var in metero_use]
         self.feature = self.feature[:,:,metero_idx]
 
-        u = self.feature[:, :, -2] * units.meter / units.second
-        v = self.feature[:, :, -1] * units.meter / units.second
-        speed = 3.6 * mpcalc.wind_speed(u, v)._magnitude
-        direc = mpcalc.wind_direction(u, v)._magnitude
+        if config['experiments']['use_wind_coordinates']:
+            u = self.feature[:, :, -2] * units.meter / units.second # u_component_of_wind+950
+            v = self.feature[:, :, -1] * units.meter / units.second # v_component_of_wind+950
+            speed = 3.6 * mpcalc.wind_speed(u, v)._magnitude
+            direc = mpcalc.wind_direction(u, v)._magnitude
+        else:
+            print("Not using wind coordinates, but speed/direction directly")
+            speed = self.feature[:, :, -2]
+            direc = self.feature[:, :, -1]
 
         h_arr = []
         w_arr = []
@@ -115,21 +120,37 @@ class HazeData(data.Dataset):
         self.time_arrow = self.time_arrow[start_idx: end_idx + 1]
 
     def _gen_time_arr(self):
-        self.time_arrow = []
-        self.time_arr = []
-        for time_arrow in arrow.Arrow.interval('hour', self.data_start, self.data_end.shift(hours=+3), 3):
-            self.time_arrow.append(time_arrow[0])
-            self.time_arr.append(time_arrow[0].timestamp)
-        self.time_arr = np.stack(self.time_arr, axis=-1)
+        if self.time_arrow is None:
+            # not yet generated
+            self.time_arrow = []
+            self.time_arr = []
+            for time_arrow in arrow.Arrow.interval('hour', self.data_start, self.data_end.shift(hours=+3), 3):
+                self.time_arrow.append(time_arrow[0])
+                self.time_arr.append(time_arrow[0].timestamp)
+            self.time_arr = np.stack(self.time_arr, axis=-1)
+        else:
+            self.time_arr = np.array(list(map(lambda t: t.timestamp, self.time_arrow)))
 
     def _load_npy(self):
-        self.knowair = np.load(self.knowair_fp)
-        self.feature = self.knowair[:,:,:-1]
-        self.pm25 = self.knowair[:,:,-1:]
+        self.knowair = np.load(self.knowair_fp, allow_pickle=True)
+        if self.knowair.dtype == 'object':
+            assert not config['experiments']['compute_time'], "Invalid config: time must be provided"
+            self.time_arrow = list(map(arrow.get, self.knowair[:,0,0]))
+            self.feature = self.knowair[:,:,1:-1].astype(float)
+            self.pm25 = self.knowair[:,:,-1:].astype(float)
+        else:
+            assert config['experiments']['compute_time'], "Invalid config: computing time"
+            self.feature = self.knowair[:,:,:-1]
+            self.pm25 = self.knowair[:,:,-1:]
 
     def _get_idx(self, t):
-        t0 = self.data_start
-        return int((t.timestamp - t0.timestamp) / (60 * 60 * 3))
+        if config['experiments']['compute_time']:
+            # have data for every point in time
+            t0 = self.data_start
+            return int((t.timestamp - t0.timestamp) / (60 * 60 * 3))
+        else:
+            # have to select the appropriate data points
+            return np.where(np.array(self.time_arrow) >= t)[0][0]
 
     def _get_time(self, time_yaml):
         arrow_time = arrow.get(datetime(*time_yaml[0]), time_yaml[1])
