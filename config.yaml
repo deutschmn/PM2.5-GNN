@@ -28,13 +28,13 @@ train:
   epochs: 50
   exp_repeat: 10
   hist_len: 1
-  pred_len: 24
+  pred_len: 336 # = 24 hours * 14 days
   weight_decay: 0.0005
   early_stop: 10
   lr: 0.0005
 
 filepath:
-  patricks-mac.local:
+  cuda04:
     knowair_fp: ./data/KnowAir_import.npy
     results_dir: ./data/results
 
