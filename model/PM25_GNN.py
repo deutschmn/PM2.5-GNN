@@ -90,9 +90,16 @@ class PM25_GNN(nn.Module):
         pm25_pred = []
         h0 = torch.zeros(self.batch_size * self.city_num, self.hid_dim).to(self.device)
         hn = h0
-        xn = pm25_hist[:, -1]
+
+        if pm25_hist.shape[1] == 0: # not using PM2.5 at all
+            xn = None
+        else:
+            xn = pm25_hist[:, -1]
         for i in range(self.pred_len):
-            x = torch.cat((xn, feature[:, self.hist_len + i]), dim=-1)
+            if pm25_hist.shape[1] == 0: # not using PM2.5 at all
+                x = feature[:, self.hist_len + i]
+            else:
+                x = torch.cat((xn, feature[:, self.hist_len + i]), dim=-1)
 
             xn_gnn = x
             xn_gnn = xn_gnn.contiguous()

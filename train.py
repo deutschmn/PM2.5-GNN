@@ -44,10 +44,15 @@ exp_repeat = config['train']['exp_repeat']
 save_npy = config['experiments']['save_npy']
 criterion = nn.MSELoss()
 
+use_pm25 = hist_len > 0
+
+if not use_pm25:
+    print('Not using PM25 measurements as inputs')
+
 train_data = HazeData(graph, hist_len, pred_len, dataset_num, flag='Train')
 val_data = HazeData(graph, hist_len, pred_len, dataset_num, flag='Val')
 test_data = HazeData(graph, hist_len, pred_len, dataset_num, flag='Test')
-in_dim = train_data.feature.shape[-1] + train_data.pm25.shape[-1]
+in_dim = train_data.feature.shape[-1] + (train_data.pm25.shape[-1] * int(use_pm25))
 wind_mean, wind_std = train_data.wind_mean, train_data.wind_std
 pm25_mean, pm25_std = test_data.pm25_mean, test_data.pm25_std
 
