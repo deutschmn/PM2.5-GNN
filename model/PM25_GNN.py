@@ -26,10 +26,10 @@ class GraphGNN(nn.Module):
                                    Sigmoid(),
                                    Linear(e_h, e_out),
                                    Sigmoid(),
-                                   )
+                                   ) # Ψ
         self.node_mlp = Sequential(Linear(e_out, n_out),
                                    Sigmoid(),
-                                   )
+                                   ) # Φ
 
     def forward(self, x):
         self.edge_index = self.edge_index.to(self.device)
@@ -49,19 +49,20 @@ class GraphGNN(nn.Module):
         city_direc = self.edge_attr_[:,:,1]
 
         theta = torch.abs(city_direc - src_wind_direc)
-        edge_weight = F.relu(3 * src_wind_speed * torch.cos(theta) / city_dist) # eq. (4)
+        edge_weight = F.relu(3 * src_wind_speed * torch.cos(theta) / city_dist) # advection S [eq. 4]
         edge_weight = edge_weight.to(self.device)
         edge_attr_norm = self.edge_attr_norm[None, :, :].repeat(node_src.size(0), 1, 1).to(self.device)
         out = torch.cat([node_src, node_target, edge_attr_norm, edge_weight[:,:,None]], dim=-1)
 
         # neighbourhood aggregation = message passing
-        out = self.edge_mlp(out)
-        out_add = scatter_add(out, edge_target, dim=1, dim_size=x.size(1))
+        out = self.edge_mlp(out) # Ψ
+        out_add = scatter_add(out, edge_target, dim=1, dim_size=x.size(1)) # e_{j->i}
         # out_sub = scatter_sub(out, edge_src, dim=1, dim_size=x.size(1))
-        out_sub = scatter_add(out.neg(), edge_src, dim=1, dim_size=x.size(1))  # For higher version of PyG.
+        # For higher version of PyG.
+        out_sub = scatter_add(out.neg(), edge_src, dim=1, dim_size=x.size(1)) # e_{i->j}
 
         out = out_add + out_sub
-        out = self.node_mlp(out)
+        out = self.node_mlp(out) # Φ
 
         return out
 
