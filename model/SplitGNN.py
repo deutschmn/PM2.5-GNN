@@ -9,38 +9,38 @@ from torch.nn import Parameter
 
 
 class GraphGNN(nn.Module):
-    def __init__(self, device, edge_index, edge_attr, in_dim, out_dim, wind_mean, wind_std):
+    def __init__(self, device, edge_index, edge_attr, wind_mean, wind_std):
         super(GraphGNN, self).__init__()
         self.device = device
         self.edge_index = torch.LongTensor(edge_index).to(self.device)
+
+        self.num_nodes = self.edge_index.max().item() + 1
+        self.num_edges = self.edge_index.size(1)
+
         self.edge_attr = torch.Tensor(np.float32(edge_attr))
         self.edge_attr_norm = (self.edge_attr - self.edge_attr.mean(dim=0)) / self.edge_attr.std(dim=0)
-        self.w = Parameter(torch.rand([1]))
-        self.b = Parameter(torch.rand([1]))
+
         self.wind_mean = torch.Tensor(np.float32(wind_mean)).to(self.device)
         self.wind_std = torch.Tensor(np.float32(wind_std)).to(self.device)
-        e_h = 32
-        e_out = 30
-        n_out = out_dim
-        self.edge_mlp = Sequential(Linear(in_dim * 2 + 2 + 1, e_h),
+
+        edge_mlp_hidden_dim = 32
+        self.edge_mlp = Sequential(Linear(3, edge_mlp_hidden_dim),
                                    Sigmoid(),
-                                   Linear(e_h, e_out),
-                                   Sigmoid(),
-                                   ) # Ψ
-        self.node_mlp = Sequential(Linear(e_out, n_out),
-                                   Sigmoid(),
-                                   ) # Φ
+                                   Linear(edge_mlp_hidden_dim, 1),
+                                   Sigmoid())
 
     def forward(self, x):
+        batch_size = x.size(0)
+
         self.edge_index = self.edge_index.to(self.device)
         self.edge_attr = self.edge_attr.to(self.device)
-        self.w = self.w.to(self.device)
-        self.b = self.b.to(self.device)
 
         edge_src, edge_target = self.edge_index
         node_src = x[:, edge_src]
         node_target = x[:, edge_target]
 
+        # TODO make sure we're really using the wind here and not some other feature
+        # FIXME really, we're adding wind_std to the wind direction?
         src_wind = node_src[:,:,-2:] * self.wind_std[None,None,:] + self.wind_mean[None,None,:]
         src_wind_speed = src_wind[:, :, 0]
         src_wind_direc = src_wind[:,:,1]
@@ -51,20 +51,19 @@ class GraphGNN(nn.Module):
         theta = torch.abs(city_direc - src_wind_direc)
         edge_weight = F.relu(3 * src_wind_speed * torch.cos(theta) / city_dist) # advection S [eq. 4]
         edge_weight = edge_weight.to(self.device)
-        edge_attr_norm = self.edge_attr_norm[None, :, :].repeat(node_src.size(0), 1, 1).to(self.device)
-        out = torch.cat([node_src, node_target, edge_attr_norm, edge_weight[:,:,None]], dim=-1)
+        edge_attr_norm = self.edge_attr_norm[None, :, :].repeat(x.size(0), 1, 1).to(self.device)
+        edge_atts = torch.cat([edge_attr_norm, edge_weight[:,:,None]], dim=-1)
 
-        # neighbourhood aggregation = message passing
-        out = self.edge_mlp(out) # Ψ
-        out_add = scatter_add(out, edge_target, dim=1, dim_size=x.size(1)) # e_{j->i}
-        # out_sub = scatter_sub(out, edge_src, dim=1, dim_size=x.size(1))
-        # For higher version of PyG.
-        out_sub = scatter_add(out.neg(), edge_src, dim=1, dim_size=x.size(1)) # e_{i->j}
+        edge_representations = self.edge_mlp(edge_atts).squeeze()
 
-        out = out_add + out_sub
-        out = self.node_mlp(out) # Φ
+        R = torch.zeros(batch_size, self.num_nodes, self.num_nodes, device=self.device)
+        # TODO optimize this loop
+        for e in range(self.num_edges):
+            src, sink = self.edge_index[:, e]
+            R[:, src.item(), sink.item()] = edge_representations[:, e].squeeze()
+        R = torch.softmax(R, dim=2)
 
-        return out
+        return R
 
 
 class SplitGNN(nn.Module):
@@ -72,20 +71,17 @@ class SplitGNN(nn.Module):
         super(SplitGNN, self).__init__()
 
         self.device = device
-        self.hist_len = hist_len # TODO could probably be removed
+        self.hist_len = hist_len
         self.pred_len = pred_len
         self.city_num = city_num
         self.batch_size = batch_size
 
         self.in_dim = in_dim
-        self.hid_dim = 64
-        self.out_dim = 1
-        self.gnn_out = 13
+        self.hid_dim = 4
 
-        self.fc_in = nn.Linear(self.in_dim, self.hid_dim) # Doesn't seem to be used?
-        self.graph_gnn = GraphGNN(self.device, edge_index, edge_attr, self.in_dim, self.gnn_out, wind_mean, wind_std)
-        self.gru_cell = GRUCell(self.in_dim + self.gnn_out, self.hid_dim)
-        self.fc_out = nn.Linear(self.hid_dim, self.out_dim)
+        self.graph_gnn = GraphGNN(self.device, edge_index, edge_attr, wind_mean, wind_std)
+        self.gru_cell = GRUCell(self.in_dim, self.hid_dim)
+        self.fc_out = nn.Linear(self.hid_dim, 1)
 
     def forward(self, pm25_hist, feature):
         pm25_pred = []
@@ -102,15 +98,15 @@ class SplitGNN(nn.Module):
             else:
                 x = torch.cat((xn, feature[:, self.hist_len + i]), dim=-1)
 
-            xn_gnn = x
-            xn_gnn = xn_gnn.contiguous()
-            xn_gnn = self.graph_gnn(xn_gnn)
-            x = torch.cat([xn_gnn, x], dim=-1)
+            x = x.contiguous()
+
+            R = self.graph_gnn(x)
 
             hn = self.gru_cell(x, hn)
             xn = hn.view(self.batch_size, self.city_num, self.hid_dim)
             xn = self.fc_out(xn)
-            pm25_pred.append(xn)
+            c = torch.matmul(R, xn)
+            pm25_pred.append(c)
 
         pm25_pred = torch.stack(pm25_pred, dim=1)
 
