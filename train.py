@@ -13,6 +13,7 @@ from model.GC_LSTM import GC_LSTM
 from model.nodesFC_GRU import nodesFC_GRU
 from model.PM25_GNN import PM25_GNN
 from model.PM25_GNN_nosub import PM25_GNN_nosub
+from model.SplitGNN import SplitGNN
 
 import arrow
 import torch
@@ -25,7 +26,7 @@ import shutil
 
 torch.set_num_threads(1)
 use_cuda = torch.cuda.is_available()
-device = torch.device('cuda' if use_cuda else 'cpu')
+device = torch.device(config['device'][os.uname().nodename]['torch_device'])
 
 graph = Graph()
 city_num = graph.node_num
@@ -113,6 +114,8 @@ def get_model():
         return PM25_GNN(hist_len, pred_len, in_dim, city_num, batch_size, device, graph.edge_index, graph.edge_attr, wind_mean, wind_std)
     elif exp_model == 'PM25_GNN_nosub':
         return PM25_GNN_nosub(hist_len, pred_len, in_dim, city_num, batch_size, device, graph.edge_index, graph.edge_attr, wind_mean, wind_std)
+    elif exp_model == 'SplitGNN':
+        return SplitGNN(hist_len, pred_len, in_dim, city_num, batch_size, device, graph.edge_index, graph.edge_attr, wind_mean, wind_std)
     else:
         raise Exception('Wrong model name!')
 

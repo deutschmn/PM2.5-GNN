@@ -12,7 +12,7 @@ with open(conf_fp) as f:
 
 
 nodename = os.uname().nodename
-file_dir = config['filepath'][nodename]
+file_dir = config['device'][nodename]
 
 
 def main():
