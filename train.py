@@ -158,6 +158,7 @@ def val(val_loader, model):
 def test(test_loader, model):
     model.eval()
     predict_list = []
+    R_list = []
     label_list = []
     time_list = []
     test_loss = 0
@@ -167,7 +168,7 @@ def test(test_loader, model):
         feature = feature.to(device)
         pm25_label = pm25[:, hist_len:]
         pm25_hist = pm25[:, :hist_len]
-        pm25_pred = model(pm25_hist, feature)
+        pm25_pred, R = model(pm25_hist, feature, return_R=True)
         loss = criterion(pm25_pred, pm25_label)
         test_loss += loss.item()
 
@@ -176,6 +177,7 @@ def test(test_loader, model):
         predict_list.append(pm25_pred_val)
         label_list.append(pm25_label_val)
         time_list.append(time_arr.cpu().detach().numpy())
+        R_list.append(R.cpu().detach().numpy())
 
     test_loss /= batch_idx + 1
 
@@ -183,8 +185,9 @@ def test(test_loader, model):
     label_epoch = np.concatenate(label_list, axis=0)
     time_epoch = np.concatenate(time_list, axis=0)
     predict_epoch[predict_epoch < 0] = 0
+    R_epoch = np.concatenate(R_list, axis=0)
 
-    return test_loss, predict_epoch, label_epoch, time_epoch
+    return test_loss, predict_epoch, label_epoch, time_epoch, R_epoch
 
 
 def get_mean_std(data_list):
@@ -244,7 +247,7 @@ def main():
                 torch.save(model.state_dict(), model_fp)
                 print('Save model: %s' % model_fp)
 
-                test_loss, predict_epoch, label_epoch, time_epoch = test(test_loader, model)
+                test_loss, predict_epoch, label_epoch, time_epoch, R_epoch = test(test_loader, model)
                 train_loss_, val_loss_ = train_loss, val_loss
                 rmse, mae, csi, pod, far = get_metric(predict_epoch, label_epoch)
                 print('Train loss: %0.4f, Val loss: %0.4f, Test loss: %0.4f, RMSE: %0.2f, MAE: %0.2f, CSI: %0.4f, POD: %0.4f, FAR: %0.4f' % (train_loss_, val_loss_, test_loss, rmse, mae, csi, pod, far))
@@ -253,6 +256,7 @@ def main():
                     np.save(os.path.join(exp_model_dir, 'predict.npy'), predict_epoch)
                     np.save(os.path.join(exp_model_dir, 'label.npy'), label_epoch)
                     np.save(os.path.join(exp_model_dir, 'time.npy'), time_epoch)
+                    np.save(os.path.join(exp_model_dir, 'R.npy'), R_epoch)
 
         train_loss_list.append(train_loss_)
         val_loss_list.append(val_loss_)

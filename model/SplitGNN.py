@@ -83,8 +83,9 @@ class SplitGNN(nn.Module):
         self.gru_cell = GRUCell(self.in_dim, self.hid_dim)
         self.fc_out = nn.Linear(self.hid_dim, 1)
 
-    def forward(self, pm25_hist, feature):
+    def forward(self, pm25_hist, feature, return_R=False):
         pm25_pred = []
+        R_list = []
         h0 = torch.zeros(self.batch_size * self.city_num, self.hid_dim).to(self.device)
         hn = h0
 
@@ -101,6 +102,7 @@ class SplitGNN(nn.Module):
             x = x.contiguous()
 
             R = self.graph_gnn(x)
+            R_list.append(R)
 
             hn = self.gru_cell(x, hn)
             xn = hn.view(self.batch_size, self.city_num, self.hid_dim)
@@ -108,6 +110,10 @@ class SplitGNN(nn.Module):
             c = torch.matmul(R, xn)
             pm25_pred.append(c)
 
+        R_list = torch.stack(R_list, dim=1)
         pm25_pred = torch.stack(pm25_pred, dim=1)
 
-        return pm25_pred
+        if return_R:
+            return pm25_pred, R_list
+        else:
+            return pm25_pred
