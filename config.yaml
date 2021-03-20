@@ -22,7 +22,7 @@ experiments:
 #  model: nodesFC_GRU
 #  model: PM25_GNN
 #  model: SplitGNN
-  model: SplitGNN_1
+  model: SplitGNN_2
 #  model: PM25_GNN_nosub
 
 train:

@@ -15,9 +15,11 @@ from model.PM25_GNN import PM25_GNN
 from model.PM25_GNN_nosub import PM25_GNN_nosub
 from model.SplitGNN import SplitGNN
 from model.SplitGNN_1 import SplitGNN_1
+from model.SplitGNN_2 import SplitGNN_2
 
 import arrow
 import torch
+import torch.autograd.profiler as profiler
 from torch import nn
 from tqdm import tqdm
 import numpy as np
@@ -119,6 +121,8 @@ def get_model():
         return SplitGNN(hist_len, pred_len, in_dim, city_num, batch_size, device, graph.edge_index, graph.edge_attr, wind_mean, wind_std)
     elif exp_model == 'SplitGNN_1':
         return SplitGNN_1(hist_len, pred_len, in_dim, city_num, batch_size, device, graph.edge_index, graph.edge_attr, wind_mean, wind_std)
+    elif exp_model == 'SplitGNN_2':
+        return SplitGNN_2(hist_len, pred_len, in_dim, city_num, batch_size, device, graph.edge_index, graph.edge_attr, wind_mean, wind_std)
     else:
         raise Exception('Wrong model name!')
 
@@ -132,7 +136,10 @@ def train(train_loader, model, optimizer):
         feature = feature.to(device)
         pm25_label = pm25[:, hist_len:]
         pm25_hist = pm25[:, :hist_len]
-        pm25_pred = model(pm25_hist, feature)
+        with profiler.profile(record_shapes=True) as prof:
+            with profiler.record_function("model_inference"):
+                pm25_pred = model(pm25_hist, feature)
+        print(prof.key_averages().table(sort_by="cpu_time_total", row_limit=10))
         loss = criterion(pm25_pred, pm25_label)
         loss.backward()
         optimizer.step()
