@@ -59,10 +59,9 @@ class GraphGNN(nn.Module):
 
         R = torch.zeros(batch_size, self.num_nodes, self.num_nodes, device=self.device)
         # TODO optimize this loop
-        with profiler.record_function("R_loop"):
-            for e in range(self.num_edges):
-                src, sink = self.edge_index[:, e]
-                R[:, src.item(), sink.item()] = edge_representations[:, e].squeeze()
+        for e in range(self.num_edges):
+            src, sink = self.edge_index[:, e]
+            R[:, src.item(), sink.item()] = edge_representations[:, e].squeeze()
         R = torch.softmax(R, dim=2)
 
         return R

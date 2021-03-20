@@ -136,10 +136,7 @@ def train(train_loader, model, optimizer):
         feature = feature.to(device)
         pm25_label = pm25[:, hist_len:]
         pm25_hist = pm25[:, :hist_len]
-        with profiler.profile(record_shapes=True) as prof:
-            with profiler.record_function("model_inference"):
-                pm25_pred = model(pm25_hist, feature)
-        print(prof.key_averages().table(sort_by="cpu_time_total", row_limit=10))
+        pm25_pred = model(pm25_hist, feature)
         loss = criterion(pm25_pred, pm25_label)
         loss.backward()
         optimizer.step()
