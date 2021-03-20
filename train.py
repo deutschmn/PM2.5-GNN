@@ -14,6 +14,7 @@ from model.nodesFC_GRU import nodesFC_GRU
 from model.PM25_GNN import PM25_GNN
 from model.PM25_GNN_nosub import PM25_GNN_nosub
 from model.SplitGNN import SplitGNN
+from model.SplitGNN_1 import SplitGNN_1
 
 import arrow
 import torch
@@ -116,6 +117,8 @@ def get_model():
         return PM25_GNN_nosub(hist_len, pred_len, in_dim, city_num, batch_size, device, graph.edge_index, graph.edge_attr, wind_mean, wind_std)
     elif exp_model == 'SplitGNN':
         return SplitGNN(hist_len, pred_len, in_dim, city_num, batch_size, device, graph.edge_index, graph.edge_attr, wind_mean, wind_std)
+    elif exp_model == 'SplitGNN_1':
+        return SplitGNN_1(hist_len, pred_len, in_dim, city_num, batch_size, device, graph.edge_index, graph.edge_attr, wind_mean, wind_std)
     else:
         raise Exception('Wrong model name!')
 
