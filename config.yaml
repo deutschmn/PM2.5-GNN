@@ -39,6 +39,8 @@ train:
 device:
   cuda04:
     knowair_fp: ./data/KnowAir_import.npy
+    city_fp: ./data/city_import.txt
+    altitude_fp: ./data/altitude.npy
     results_dir: ./data/results
     torch_device: cuda:5
 

@@ -1,5 +1,6 @@
 import os
 import sys
+from util import file_dir
 proj_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(proj_dir)
 import numpy as np
@@ -13,8 +14,8 @@ import metpy.calc as mpcalc
 from bresenham import bresenham
 
 
-city_fp = os.path.join(proj_dir, 'data/city_import.txt')
-altitude_fp = os.path.join(proj_dir, 'data/altitude.npy')
+city_fp = file_dir['city_fp']
+altitude_fp = file_dir['altitude_fp']
 
 
 class Graph():
