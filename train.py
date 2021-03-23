@@ -91,6 +91,8 @@ def get_exp_info():
                 'Test: %s --> %s\n' % (test_data.start_time, test_data.end_time) + \
                 'City number: %s\n' % city_num + \
                 'Use metero: %s\n' % config['experiments']['metero_use'] + \
+                'Device: %s\n' % os.uname().nodename + \
+                'Device config: %s\n' % config['device'][os.uname().nodename] + \
                 'batch_size: %s\n' % batch_size + \
                 'epochs: %s\n' % epochs + \
                 'hist_len: %s\n' % hist_len + \
