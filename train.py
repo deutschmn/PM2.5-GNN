@@ -138,7 +138,13 @@ def train(train_loader, model, optimizer):
         feature = feature.to(device)
         pm25_label = pm25[:, hist_len:]
         pm25_hist = pm25[:, :hist_len]
-        pm25_pred = model(pm25_hist, feature)
+
+        out = model(pm25_hist, feature)
+        if hasattr(model, 'returns_r') and model.returns_r:
+            pm25_pred, _ = out
+        else:
+            pm25_pred = out
+
         loss = criterion(pm25_pred, pm25_label)
         loss.backward()
         optimizer.step()
@@ -156,7 +162,13 @@ def val(val_loader, model):
         feature = feature.to(device)
         pm25_label = pm25[:, hist_len:]
         pm25_hist = pm25[:, :hist_len]
-        pm25_pred = model(pm25_hist, feature)
+
+        out = model(pm25_hist, feature)
+        if hasattr(model, 'returns_r') and model.returns_r:
+            pm25_pred, _ = out
+        else:
+            pm25_pred = out
+
         loss = criterion(pm25_pred, pm25_label)
         val_loss += loss.item()
 
@@ -177,7 +189,13 @@ def test(test_loader, model):
         feature = feature.to(device)
         pm25_label = pm25[:, hist_len:]
         pm25_hist = pm25[:, :hist_len]
-        pm25_pred, R = model(pm25_hist, feature, return_R=True)
+
+        out = model(pm25_hist, feature)
+        if hasattr(model, 'returns_r') and model.returns_r:
+            pm25_pred, R = out
+        else:
+            pm25_pred, R = out, torch.empty(0)
+
         loss = criterion(pm25_pred, pm25_label)
         test_loss += loss.item()
 

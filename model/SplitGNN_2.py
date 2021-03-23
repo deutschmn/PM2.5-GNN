@@ -71,6 +71,8 @@ class SplitGNN_2(nn.Module):
     def __init__(self, hist_len, pred_len, in_dim, city_num, batch_size, device, edge_index, edge_attr, wind_mean, wind_std):
         super(SplitGNN_2, self).__init__()
 
+        self.returns_r = True
+
         self.device = device
         self.hist_len = hist_len
         self.pred_len = pred_len
@@ -85,7 +87,8 @@ class SplitGNN_2(nn.Module):
         # self.fc_out = nn.Linear(self.hid_dim, 1)
         self.node_mlp = nn.Linear(self.in_dim + 1, 1)
 
-    def forward(self, pm25_hist, feature, return_R=False):
+
+    def forward(self, pm25_hist, feature):
         pm25_pred = []
         R_list = []
         # h0 = torch.zeros(self.batch_size * self.city_num, self.hid_dim).to(self.device)
@@ -119,7 +122,4 @@ class SplitGNN_2(nn.Module):
         R_list = torch.stack(R_list, dim=1)
         pm25_pred = torch.stack(pm25_pred, dim=1)
 
-        if return_R:
-            return pm25_pred, R_list
-        else:
-            return pm25_pred
+        return pm25_pred, R_list

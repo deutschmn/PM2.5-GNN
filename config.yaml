@@ -1,16 +1,16 @@
 ---
 experiments:
-  metero_use: ['2m_temperature', # = temperature
-               # 'boundary_layer_height',  # MISSING # Comment out for no_BPL experiments.
+  metero_use: ['2m_temperature',
+               'boundary_layer_height', # Comment out for no_BPL experiments.
                # 'k_index', # MISSING
                'relative_humidity+950', # = humidity * 100
-               # 'surface_pressure', # MISSING
-               'total_precipitation', # = ~ precipIntensity
-               'wind_speed', # 'u_component_of_wind+950', # speed = windSpeed * 3.6 (from m/s to km/h)
-               'wind_direction' # 'v_component_of_wind+950' # direc = windBearing
+               'surface_pressure',
+               'total_precipitation',
+               'u_component_of_wind+950', 
+               'v_component_of_wind+950'
                ]
   # if True, last two features should be (u,v) of wind, otherwise (speed [km/h], direc)
-  use_wind_coordinates: False 
+  use_wind_coordinates: True 
   # If True, timestamps are computed from start/end date, otherwise provided as first feature (format e.g.'2016-01-01 02:00:00')
   compute_time: False
   save_npy: True
@@ -20,9 +20,9 @@ experiments:
 #  model: GRU
 #  model: GC_LSTM
 #  model: nodesFC_GRU
-#  model: PM25_GNN
+  model: PM25_GNN
 #  model: SplitGNN
-  model: SplitGNN_2
+#  model: SplitGNN_2
 #  model: PM25_GNN_nosub
 
 train:
@@ -38,8 +38,8 @@ train:
 
 device:
   cuda04:
-    knowair_fp: ./data/KnowAir_import.npy
-    city_fp: ./data/city_import.txt
+    knowair_fp: ./data/KnowAir_DS1.npy
+    city_fp: ./data/city_DS1.txt
     altitude_fp: ./data/altitude.npy
     results_dir: ./data/results
     torch_device: cuda:5
@@ -49,11 +49,14 @@ data:
     [
       #'time',
       #'timestamp',
-      '2m_temperature', # = temperature
+      '2m_temperature',
+      'boundary_layer_height', # Comment out for no_BPL experiments.
+      # 'k_index', # MISSING
       'relative_humidity+950', # = humidity * 100
-      'total_precipitation', # = ~ precipIntensity
-      'wind_speed', # 'u_component_of_wind+950', # speed = windSpeed * 3.6 (from m/s to km/h)
-      'wind_direction'
+      'surface_pressure',
+      'total_precipitation',
+      'u_component_of_wind+950', 
+      'v_component_of_wind+950'
     #  '100m_u_component_of_wind',
     #  '100m_v_component_of_wind',
     #  '2m_dewpoint_temperature',
@@ -74,7 +77,7 @@ data:
      ]
 
 dataset:
-  data_start: [[2016, 1, 1, 2, 0], GMT] # 2016-01-01 02:00:00
+  data_start: [[2016, 1, 1, 8, 0], GMT] # 2016-01-01 08:00:00
   data_end: [[2020, 12, 31, 23, 0], GMT] # 2020-12-31 23:00:00
 
   1: 
