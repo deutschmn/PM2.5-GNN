@@ -7,23 +7,34 @@ from torch_scatter import scatter_add#, scatter_sub  # no scatter sub in lastest
 from torch.nn import functional as F
 from torch.nn import Parameter
 
+class SplitGNN_3(nn.Module):
+    def __init__(self, hist_len, pred_len, in_dim, city_num, batch_size, device, edge_index, edge_attr, wind_mean, wind_std):
+        super(SplitGNN_3, self).__init__()
 
-class GraphGNN(nn.Module):
-    def __init__(self, device, edge_index, edge_attr, wind_mean, wind_std, batch_size):
-        super(GraphGNN, self).__init__()
+        self.returns_r = True
+
         self.device = device
-        self.edge_index = torch.LongTensor(edge_index).to(self.device)
+        self.hist_len = hist_len
+        self.pred_len = pred_len
 
-        self.num_nodes = self.edge_index.max().item() + 1
+        self.edge_index = torch.LongTensor(edge_index).to(self.device)
+        
+        self.num_nodes = city_num
         self.num_edges = self.edge_index.size(1)
 
+        self.batch_size = batch_size
+
+        self.in_dim = in_dim
+        self.hid_dim = 1
+
+        self.gru_cell = GRUCell(self.in_dim, self.hid_dim)
+        
+        # graph attributes
         self.edge_attr = torch.Tensor(np.float32(edge_attr))
         self.edge_attr_norm = (self.edge_attr - self.edge_attr.mean(dim=0)) / self.edge_attr.std(dim=0)
 
         self.wind_mean = torch.Tensor(np.float32(wind_mean)).to(self.device)
         self.wind_std = torch.Tensor(np.float32(wind_std)).to(self.device)
-
-        self.batch_size = batch_size
 
         self.edge_mlp_hidden_dim = 32
         self.edge_gru_hidden_dim = 16
@@ -33,10 +44,8 @@ class GraphGNN(nn.Module):
                                    Linear(self.edge_mlp_hidden_dim, 1),
                                    nn.ReLU())
 
-        e0 = torch.zeros(self.batch_size * self.num_edges, self.edge_gru_hidden_dim).to(self.device)
-        self.e = e0
 
-    def forward(self, x):
+    def generate_edge_attributes(self, x):
         self.edge_index = self.edge_index.to(self.device)
         self.edge_attr = self.edge_attr.to(self.device)
 
@@ -59,45 +68,30 @@ class GraphGNN(nn.Module):
         edge_attr_norm = self.edge_attr_norm[None, :, :].repeat(x.size(0), 1, 1).to(self.device)
         edge_atts = torch.cat([edge_attr_norm, edge_weight[:,:,None]], dim=-1)
 
-        # FIXME this doesn't work -> have to detach self.e in the next iteration from comp. graph
-        self.e = self.edge_gru(edge_atts, self.e)
-        e_in = self.e.view(self.batch_size, self.num_edges, self.edge_gru_hidden_dim)
-        e_rep = self.edge_mlp(e_in).squeeze()
+        return edge_atts
 
+
+    def restructure_edges(self, e_rep):
+        """ Generates R matrix from edge representations """
         R = torch.zeros(self.batch_size, self.num_nodes, self.num_nodes, device=self.device)
+        
         # TODO optimize this loop
         for e in range(self.num_edges):
             src, sink = self.edge_index[:, e]
             R[:, src.item(), sink.item()] = e_rep[:, e].squeeze()
-        R = torch.softmax(R, dim=2)
 
-        return R
+        return torch.softmax(R, dim=2)
 
-
-class SplitGNN_3(nn.Module):
-    def __init__(self, hist_len, pred_len, in_dim, city_num, batch_size, device, edge_index, edge_attr, wind_mean, wind_std):
-        super(SplitGNN_3, self).__init__()
-
-        self.returns_r = True
-
-        self.device = device
-        self.hist_len = hist_len
-        self.pred_len = pred_len
-        self.city_num = city_num
-        self.batch_size = batch_size
-
-        self.in_dim = in_dim
-        self.hid_dim = 1
-
-        self.graph_gnn = GraphGNN(self.device, edge_index, edge_attr, wind_mean, wind_std, batch_size)
-        self.gru_cell = GRUCell(self.in_dim, self.hid_dim)
-        # self.fc_out = nn.Linear(self.hid_dim, 1)
 
     def forward(self, pm25_hist, feature):
         pm25_pred = []
         R_list = []
-        h0 = torch.zeros(self.batch_size * self.city_num, self.hid_dim).to(self.device)
+
+        h0 = torch.zeros(self.batch_size * self.num_nodes, self.hid_dim).to(self.device)
         hn = h0
+
+        e0 = torch.zeros(self.batch_size * self.num_edges, self.edge_gru_hidden_dim).to(self.device)
+        en = e0
 
         if pm25_hist.shape[1] == 0: # not using PM2.5 at all
             xn = None
@@ -111,13 +105,21 @@ class SplitGNN_3(nn.Module):
 
             x = x.contiguous()
 
-            R = self.graph_gnn(x)
+            # compute transfers
+            edge_atts = self.generate_edge_attributes(x)
+            en = self.edge_gru(edge_atts, en)
+            en_reshaped = en.view(self.batch_size, self.num_edges, self.edge_gru_hidden_dim)
+            en_rep = self.edge_mlp(en_reshaped).squeeze()
+            R = self.restructure_edges(en_rep)
             R_list.append(R)
 
+            # compute local phenomena
             hn = self.gru_cell(x, hn)
-            xn = hn.view(self.batch_size, self.city_num, self.hid_dim)
-            # xn = self.fc_out(xn)
-            c = torch.matmul(R, xn)
+            hn_reshaped = hn.view(self.batch_size, self.num_nodes, self.hid_dim)
+            
+            # execute transfers
+            c = torch.matmul(R, hn_reshaped)
+
             pm25_pred.append(c)
 
         R_list = torch.stack(R_list, dim=1)
