@@ -16,6 +16,7 @@ from model.PM25_GNN_nosub import PM25_GNN_nosub
 from model.SplitGNN import SplitGNN
 from model.SplitGNN_1 import SplitGNN_1
 from model.SplitGNN_2 import SplitGNN_2
+from model.SplitGNN_3 import SplitGNN_3
 
 import arrow
 import torch
@@ -125,6 +126,8 @@ def get_model():
         return SplitGNN_1(hist_len, pred_len, in_dim, city_num, batch_size, device, graph.edge_index, graph.edge_attr, wind_mean, wind_std)
     elif exp_model == 'SplitGNN_2':
         return SplitGNN_2(hist_len, pred_len, in_dim, city_num, batch_size, device, graph.edge_index, graph.edge_attr, wind_mean, wind_std)
+    elif exp_model == 'SplitGNN_3':
+        return SplitGNN_3(hist_len, pred_len, in_dim, city_num, batch_size, device, graph.edge_index, graph.edge_attr, wind_mean, wind_std)
     else:
         raise Exception('Wrong model name!')
 
@@ -242,6 +245,9 @@ def main():
         model_name = type(model).__name__
 
         print(str(model))
+        
+        num_trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+        print(f"Number of trainable parameters: {num_trainable_params}")
 
         optimizer = torch.optim.RMSprop(model.parameters(), lr=lr, weight_decay=weight_decay)
 
