@@ -44,6 +44,10 @@ class SplitGNN_3(nn.Module):
                                    Linear(self.edge_mlp_hidden_dim, 1),
                                    nn.ReLU())
 
+        # used in restructure_edges to restructure from edge to matrix shape
+        self.edge_restructure_idx = self.edge_index[0] + (self.edge_index[1] * self.num_nodes)
+        self.edge_restructure_idx = self.edge_restructure_idx.repeat(self.batch_size).view(self.batch_size, -1)
+
 
     def generate_edge_attributes(self, x):
         self.edge_index = self.edge_index.to(self.device)
@@ -73,14 +77,14 @@ class SplitGNN_3(nn.Module):
 
     def restructure_edges(self, e_rep):
         """ Generates R matrix from edge representations """
-        R = torch.zeros(self.batch_size, self.num_nodes, self.num_nodes, device=self.device)
-        
-        # TODO optimize this loop
-        for e in range(self.num_edges):
-            src, sink = self.edge_index[:, e]
-            R[:, src.item(), sink.item()] = e_rep[:, e].squeeze()
-
-        return torch.softmax(R, dim=2)
+        # Old implementation that's much slower, but probably easier to understand:
+        # R = torch.zeros(self.batch_size, self.num_nodes, self.num_nodes, device=self.device)
+        # for e in range(self.num_edges):
+        #     src, sink = self.edge_index[:, e]
+        #     R[:, sink.item(), src.item()] = e_rep[:, e].squeeze()
+        R = torch.zeros(self.batch_size, self.num_nodes * self.num_nodes, device=self.device)
+        R = R.scatter_(1, self.edge_restructure_idx, e_rep).view(self.batch_size, self.num_nodes, self.num_nodes)
+        return R
 
 
     def forward(self, pm25_hist, feature):
@@ -111,6 +115,7 @@ class SplitGNN_3(nn.Module):
             en_reshaped = en.view(self.batch_size, self.num_edges, self.edge_gru_hidden_dim)
             en_rep = self.edge_mlp(en_reshaped).squeeze()
             R = self.restructure_edges(en_rep)
+            R = torch.softmax(R, dim=2)
             R_list.append(R)
 
             # compute local phenomena
