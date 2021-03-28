@@ -25,9 +25,10 @@ class SplitGNN_3(nn.Module):
         self.batch_size = batch_size
 
         self.in_dim = in_dim
-        self.hid_dim = 1
+        self.hid_dim = 32
 
         self.gru_cell = GRUCell(self.in_dim, self.hid_dim)
+        self.node_mlp = Linear(self.hid_dim, 1)
         
         # graph attributes
         self.edge_attr = torch.Tensor(np.float32(edge_attr))
@@ -37,7 +38,7 @@ class SplitGNN_3(nn.Module):
         self.wind_std = torch.Tensor(np.float32(wind_std)).to(self.device)
 
         self.edge_mlp_hidden_dim = 32
-        self.edge_gru_hidden_dim = 16
+        self.edge_gru_hidden_dim = 64
         self.edge_gru = GRUCell(3, self.edge_gru_hidden_dim)
         self.edge_mlp = Sequential(Linear(self.edge_gru_hidden_dim, self.edge_mlp_hidden_dim),
                                    nn.ReLU(),
@@ -121,6 +122,7 @@ class SplitGNN_3(nn.Module):
             # compute local phenomena
             hn = self.gru_cell(x, hn)
             hn_reshaped = hn.view(self.batch_size, self.num_nodes, self.hid_dim)
+            hn_reshaped = self.node_mlp(hn_reshaped)
             
             # execute transfers
             c = torch.matmul(R, hn_reshaped)
