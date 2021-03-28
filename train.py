@@ -229,7 +229,7 @@ def main():
     exp_info = get_exp_info()
     print(exp_info)
 
-    exp_time = arrow.now().format('YYYYMMDDHHmmss')
+    exp_time = arrow.now().format('YYYY-MM-DD_HH-mm-ss')
 
     train_loss_list, val_loss_list, test_loss_list, rmse_list, mae_list, csi_list, pod_list, far_list = [], [], [], [], [], [], [], []
 
@@ -240,7 +240,7 @@ def main():
         val_loader = torch.utils.data.DataLoader(val_data, batch_size=batch_size, shuffle=False, drop_last=True)
         test_loader = torch.utils.data.DataLoader(test_data, batch_size=batch_size, shuffle=False, drop_last=True)
 
-        model = get_model()
+        model = get_model() # TODO maybe use DataParallel?
         model = model.to(device)
         model_name = type(model).__name__
 
