@@ -27,6 +27,7 @@ import numpy as np
 import pickle
 import glob
 import shutil
+import wandb
 
 torch.set_num_threads(1)
 use_cuda = torch.cuda.is_available()
@@ -135,7 +136,7 @@ def get_model():
 def train(train_loader, model, optimizer):
     model.train()
     train_loss = 0
-    for batch_idx, data in tqdm(enumerate(train_loader)):
+    for batch_idx, data in enumerate(tqdm(train_loader)):
         pm25, feature, time_arr = data
         pm25 = pm25.to(device)
         feature = feature.to(device)
@@ -149,6 +150,7 @@ def train(train_loader, model, optimizer):
             pm25_pred = out
 
         loss = criterion(pm25_pred, pm25_label)
+        wandb.log({'train_loss': loss})
         loss.backward()
         optimizer.step()
         train_loss += loss.item()
@@ -159,7 +161,7 @@ def train(train_loader, model, optimizer):
 def val(val_loader, model):
     model.eval()
     val_loss = 0
-    for batch_idx, data in tqdm(enumerate(val_loader)):
+    for batch_idx, data in enumerate(tqdm(val_loader)):
         pm25, feature, time_arr = data
         pm25 = pm25.to(device)
         feature = feature.to(device)
@@ -249,9 +251,17 @@ def main():
         num_trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
         print(f"Number of trainable parameters: {num_trainable_params}")
 
-        optimizer = torch.optim.RMSprop(model.parameters(), lr=lr, weight_decay=weight_decay)
+        optimizer = torch.optim.RMSprop(model.parameters(), lr=lr, weight_decay=weight_decay) # TODO maybe use Adam?
 
-        exp_model_dir = os.path.join(results_dir, '%s_%s' % (hist_len, pred_len), str(dataset_num), model_name, str(exp_time), '%02d' % exp_idx)
+        exp_model_id = os.path.join('%s_%s' % (hist_len, pred_len), str(dataset_num), model_name, str(exp_time), '%02d' % exp_idx)
+
+        run = wandb.init(entity=config['wandb']['entity'], 
+                    project=config['wandb']['project'], 
+                    config=config['train'], 
+                    name=exp_model_id)
+        wandb.watch(model)
+
+        exp_model_dir = os.path.join(results_dir, exp_model_id)
         if not os.path.exists(exp_model_dir):
             os.makedirs(exp_model_dir)
         model_fp = os.path.join(exp_model_dir, 'model.pth')
@@ -269,6 +279,7 @@ def main():
 
             print('train_loss: %.4f' % train_loss)
             print('val_loss: %.4f' % val_loss)
+            wandb.log({'epoch': epoch, 'train_loss': train_loss, 'val_loss': val_loss})
 
             if epoch - best_epoch > early_stop:
                 break
@@ -284,6 +295,7 @@ def main():
                 train_loss_, val_loss_ = train_loss, val_loss
                 rmse, mae, csi, pod, far = get_metric(predict_epoch, label_epoch)
                 print('Train loss: %0.4f, Val loss: %0.4f, Test loss: %0.4f, RMSE: %0.2f, MAE: %0.2f, CSI: %0.4f, POD: %0.4f, FAR: %0.4f' % (train_loss_, val_loss_, test_loss, rmse, mae, csi, pod, far))
+                wandb.log({'epoch': epoch, 'test_loss': test_loss, 'rmse': rmse, 'mae': mae, 'csi': csi, 'pod': pod, 'far': far})
 
                 if save_npy:
                     np.save(os.path.join(exp_model_dir, 'predict.npy'), predict_epoch)
@@ -304,6 +316,8 @@ def main():
         print(
             'Train loss: %0.4f, Val loss: %0.4f, Test loss: %0.4f, RMSE: %0.2f, MAE: %0.2f, CSI: %0.4f, POD: %0.4f, FAR: %0.4f' % (
             train_loss_, val_loss_, test_loss, rmse, mae, csi, pod, far))
+
+        run.finish()
 
     exp_metric_str = '---------------------------------------\n' + \
                      'train_loss | mean: %0.4f std: %0.4f\n' % (get_mean_std(train_loss_list)) + \

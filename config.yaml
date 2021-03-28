@@ -3,7 +3,7 @@ experiments:
   metero_use: ['2m_temperature',
                'boundary_layer_height', # Comment out for no_BPL experiments.
                # 'k_index', # MISSING
-               'relative_humidity+950', # = humidity * 100
+               'relative_humidity+950',
                'surface_pressure',
                'total_precipitation',
                'u_component_of_wind+950', 
@@ -20,9 +20,10 @@ experiments:
 #  model: GRU
 #  model: GC_LSTM
 #  model: nodesFC_GRU
-  model: PM25_GNN
-#  model: SplitGNN
+#  model: PM25_GNN
+#  model: SplitGNN_1
 #  model: SplitGNN_2
+  model: SplitGNN_3
 #  model: PM25_GNN_nosub
 
 train:
@@ -38,11 +39,15 @@ train:
 
 device:
   cuda04:
-    knowair_fp: ./data/KnowAir_DS1.npy
-    city_fp: ./data/city_DS1.txt
+    knowair_fp: ./data/KnowAir_DS2.npy
+    city_fp: ./data/city_DS2.txt
     altitude_fp: ./data/altitude.npy
     results_dir: ./data/results
-    torch_device: cuda:5
+    torch_device: cuda:10
+
+wandb:
+  entity: deutschmann
+  project: split-pollution-sources
 
 data:
   metero_var:
@@ -82,7 +87,7 @@ dataset:
 
   1: 
     train_start: [[2016, 1, 1], GMT]
-    train_end: [[2017, 12, 31], GMT]
+    train_end: [[2018, 12, 31], GMT]
     val_start: [[2019, 1, 1], GMT]
     val_end: [[2019, 12, 31], GMT]
     test_start: [[2020, 1, 1], GMT]
