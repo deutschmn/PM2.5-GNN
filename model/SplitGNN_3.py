@@ -37,13 +37,12 @@ class SplitGNN_3(nn.Module):
         self.wind_mean = torch.Tensor(np.float32(wind_mean)).to(self.device)
         self.wind_std = torch.Tensor(np.float32(wind_std)).to(self.device)
 
-        self.edge_mlp_hidden_dim = 32
+        self.edge_mlp_hidden_dim = 128
         self.edge_gru_hidden_dim = 64
         self.edge_gru = GRUCell(3, self.edge_gru_hidden_dim)
         self.edge_mlp = Sequential(Linear(self.edge_gru_hidden_dim, self.edge_mlp_hidden_dim),
                                    nn.ReLU(),
-                                   Linear(self.edge_mlp_hidden_dim, 1),
-                                   nn.ReLU())
+                                   Linear(self.edge_mlp_hidden_dim, 1))
 
         # used in restructure_edges to restructure from edge to matrix shape
         self.edge_restructure_idx = self.edge_index[0] + (self.edge_index[1] * self.num_nodes)
