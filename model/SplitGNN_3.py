@@ -27,7 +27,7 @@ class SplitGNN_3(nn.Module):
         self.in_dim = in_dim
         self.hid_dim = 32
 
-        self.gru_cell = GRUCell(self.in_dim, self.hid_dim)
+        self.gru_cell = GRUCell(self.in_dim + 1, self.hid_dim) # in features + PM2.5 from prev. iteration
         self.node_mlp = Linear(self.hid_dim, 1)
         
         # graph attributes
@@ -97,6 +97,9 @@ class SplitGNN_3(nn.Module):
         e0 = torch.zeros(self.batch_size * self.num_edges, self.edge_gru_hidden_dim).to(self.device)
         en = e0
 
+        c0 = torch.zeros(self.batch_size, self.num_nodes, 1).to(self.device)
+        cn = c0
+
         if pm25_hist.shape[1] == 0: # not using PM2.5 at all
             xn = None
         else:
@@ -119,14 +122,15 @@ class SplitGNN_3(nn.Module):
             R_list.append(R)
 
             # compute local phenomena
-            hn = self.gru_cell(x, hn)
+            node_in = torch.cat([x, cn], dim=2)
+            hn = self.gru_cell(node_in, hn)
             hn_reshaped = hn.view(self.batch_size, self.num_nodes, self.hid_dim)
             hn_reshaped = self.node_mlp(hn_reshaped)
             
             # execute transfers
-            c = torch.matmul(R, hn_reshaped)
+            cn = torch.matmul(R, hn_reshaped)
 
-            pm25_pred.append(c)
+            pm25_pred.append(cn)
 
         R_list = torch.stack(R_list, dim=1)
         pm25_pred = torch.stack(pm25_pred, dim=1)
