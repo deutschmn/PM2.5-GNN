@@ -46,7 +46,7 @@ device:
     torch_device: cuda:10
 
 wandb:
-  entity: deutschmann
+  entity: split-sources
   project: split-pollution-sources
 
 data:
