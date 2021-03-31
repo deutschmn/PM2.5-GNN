@@ -253,12 +253,15 @@ def main():
 
         optimizer = torch.optim.RMSprop(model.parameters(), lr=lr, weight_decay=weight_decay) # TODO maybe use Adam?
 
-        exp_model_id = os.path.join('%s_%s' % (hist_len, pred_len), str(dataset_num), model_name, str(exp_time), '%02d' % exp_idx)
+        exp_model_group_id = os.path.join('%s_%s' % (hist_len, pred_len), str(dataset_num), model_name, str(exp_time))
+        exp_model_id = os.path.join(exp_model_group_id, '%02d' % exp_idx)
 
         run = wandb.init(entity=config['wandb']['entity'], 
                     project=config['wandb']['project'], 
                     config=config['train'], 
                     name=exp_model_id)
+        wandb.config.exp_group = exp_model_group_id
+        wandb.config.model = model_name
         wandb.watch(model)
 
         exp_model_dir = os.path.join(results_dir, exp_model_id)
