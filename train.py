@@ -22,10 +22,11 @@ import numpy as np
 import pickle
 import glob
 import shutil
+import wandb
 
 torch.set_num_threads(1)
 use_cuda = torch.cuda.is_available()
-device = torch.device('cuda' if use_cuda else 'cpu')
+device = torch.device(config['device'][os.uname().nodename]['torch_device'])
 
 graph = Graph()
 city_num = graph.node_num
@@ -44,10 +45,15 @@ exp_repeat = config['train']['exp_repeat']
 save_npy = config['experiments']['save_npy']
 criterion = nn.MSELoss()
 
+use_pm25 = hist_len > 0
+
+if not use_pm25:
+    print('Not using PM25 measurements as inputs')
+
 train_data = HazeData(graph, hist_len, pred_len, dataset_num, flag='Train')
 val_data = HazeData(graph, hist_len, pred_len, dataset_num, flag='Val')
 test_data = HazeData(graph, hist_len, pred_len, dataset_num, flag='Test')
-in_dim = train_data.feature.shape[-1] + train_data.pm25.shape[-1]
+in_dim = train_data.feature.shape[-1] + (train_data.pm25.shape[-1] * int(use_pm25))
 wind_mean, wind_std = train_data.wind_mean, train_data.wind_std
 pm25_mean, pm25_std = test_data.pm25_mean, test_data.pm25_std
 
@@ -82,6 +88,8 @@ def get_exp_info():
                 'Test: %s --> %s\n' % (test_data.start_time, test_data.end_time) + \
                 'City number: %s\n' % city_num + \
                 'Use metero: %s\n' % config['experiments']['metero_use'] + \
+                'Device: %s\n' % os.uname().nodename + \
+                'Device config: %s\n' % config['device'][os.uname().nodename] + \
                 'batch_size: %s\n' % batch_size + \
                 'epochs: %s\n' % epochs + \
                 'hist_len: %s\n' % hist_len + \
@@ -115,14 +123,21 @@ def get_model():
 def train(train_loader, model, optimizer):
     model.train()
     train_loss = 0
-    for batch_idx, data in tqdm(enumerate(train_loader)):
+    for batch_idx, data in enumerate(tqdm(train_loader)):
         pm25, feature, time_arr = data
         pm25 = pm25.to(device)
         feature = feature.to(device)
         pm25_label = pm25[:, hist_len:]
         pm25_hist = pm25[:, :hist_len]
-        pm25_pred = model(pm25_hist, feature)
+
+        out = model(pm25_hist, feature)
+        if hasattr(model, 'returns_r') and model.returns_r:
+            pm25_pred, _ = out
+        else:
+            pm25_pred = out
+
         loss = criterion(pm25_pred, pm25_label)
+        wandb.log({'train_loss': loss})
         loss.backward()
         optimizer.step()
         train_loss += loss.item()
@@ -133,13 +148,19 @@ def train(train_loader, model, optimizer):
 def val(val_loader, model):
     model.eval()
     val_loss = 0
-    for batch_idx, data in tqdm(enumerate(val_loader)):
+    for batch_idx, data in enumerate(tqdm(val_loader)):
         pm25, feature, time_arr = data
         pm25 = pm25.to(device)
         feature = feature.to(device)
         pm25_label = pm25[:, hist_len:]
         pm25_hist = pm25[:, :hist_len]
-        pm25_pred = model(pm25_hist, feature)
+
+        out = model(pm25_hist, feature)
+        if hasattr(model, 'returns_r') and model.returns_r:
+            pm25_pred, _ = out
+        else:
+            pm25_pred = out
+
         loss = criterion(pm25_pred, pm25_label)
         val_loss += loss.item()
 
@@ -150,6 +171,7 @@ def val(val_loader, model):
 def test(test_loader, model):
     model.eval()
     predict_list = []
+    R_list = []
     label_list = []
     time_list = []
     test_loss = 0
@@ -159,7 +181,13 @@ def test(test_loader, model):
         feature = feature.to(device)
         pm25_label = pm25[:, hist_len:]
         pm25_hist = pm25[:, :hist_len]
-        pm25_pred = model(pm25_hist, feature)
+
+        out = model(pm25_hist, feature)
+        if hasattr(model, 'returns_r') and model.returns_r:
+            pm25_pred, R = out
+        else:
+            pm25_pred, R = out, torch.empty(0)
+
         loss = criterion(pm25_pred, pm25_label)
         test_loss += loss.item()
 
@@ -168,6 +196,7 @@ def test(test_loader, model):
         predict_list.append(pm25_pred_val)
         label_list.append(pm25_label_val)
         time_list.append(time_arr.cpu().detach().numpy())
+        R_list.append(R.cpu().detach().numpy())
 
     test_loss /= batch_idx + 1
 
@@ -175,8 +204,9 @@ def test(test_loader, model):
     label_epoch = np.concatenate(label_list, axis=0)
     time_epoch = np.concatenate(time_list, axis=0)
     predict_epoch[predict_epoch < 0] = 0
+    R_epoch = np.concatenate(R_list, axis=0)
 
-    return test_loss, predict_epoch, label_epoch, time_epoch
+    return test_loss, predict_epoch, label_epoch, time_epoch, R_epoch
 
 
 def get_mean_std(data_list):
@@ -188,7 +218,7 @@ def main():
     exp_info = get_exp_info()
     print(exp_info)
 
-    exp_time = arrow.now().format('YYYYMMDDHHmmss')
+    exp_time = arrow.now().format('YYYY-MM-DD_HH-mm-ss')
 
     train_loss_list, val_loss_list, test_loss_list, rmse_list, mae_list, csi_list, pod_list, far_list = [], [], [], [], [], [], [], []
 
@@ -199,15 +229,29 @@ def main():
         val_loader = torch.utils.data.DataLoader(val_data, batch_size=batch_size, shuffle=False, drop_last=True)
         test_loader = torch.utils.data.DataLoader(test_data, batch_size=batch_size, shuffle=False, drop_last=True)
 
-        model = get_model()
+        model = get_model() # TODO maybe use DataParallel?
         model = model.to(device)
         model_name = type(model).__name__
 
         print(str(model))
+        
+        num_trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+        print(f"Number of trainable parameters: {num_trainable_params}")
 
-        optimizer = torch.optim.RMSprop(model.parameters(), lr=lr, weight_decay=weight_decay)
+        optimizer = torch.optim.RMSprop(model.parameters(), lr=lr, weight_decay=weight_decay) # TODO maybe use Adam?
 
-        exp_model_dir = os.path.join(results_dir, '%s_%s' % (hist_len, pred_len), str(dataset_num), model_name, str(exp_time), '%02d' % exp_idx)
+        exp_model_group_id = os.path.join('%s_%s' % (hist_len, pred_len), str(dataset_num), model_name, str(exp_time))
+        exp_model_id = os.path.join(exp_model_group_id, '%02d' % exp_idx)
+
+        run = wandb.init(entity=config['wandb']['entity'], 
+                    project=config['wandb']['project'], 
+                    config=config['train'], 
+                    name=exp_model_id)
+        wandb.config.exp_group = exp_model_group_id
+        wandb.config.model = model_name
+        wandb.watch(model)
+
+        exp_model_dir = os.path.join(results_dir, exp_model_id)
         if not os.path.exists(exp_model_dir):
             os.makedirs(exp_model_dir)
         model_fp = os.path.join(exp_model_dir, 'model.pth')
@@ -225,6 +269,7 @@ def main():
 
             print('train_loss: %.4f' % train_loss)
             print('val_loss: %.4f' % val_loss)
+            wandb.log({'epoch': epoch, 'train_loss': train_loss, 'val_loss': val_loss})
 
             if epoch - best_epoch > early_stop:
                 break
@@ -236,15 +281,17 @@ def main():
                 torch.save(model.state_dict(), model_fp)
                 print('Save model: %s' % model_fp)
 
-                test_loss, predict_epoch, label_epoch, time_epoch = test(test_loader, model)
+                test_loss, predict_epoch, label_epoch, time_epoch, R_epoch = test(test_loader, model)
                 train_loss_, val_loss_ = train_loss, val_loss
                 rmse, mae, csi, pod, far = get_metric(predict_epoch, label_epoch)
                 print('Train loss: %0.4f, Val loss: %0.4f, Test loss: %0.4f, RMSE: %0.2f, MAE: %0.2f, CSI: %0.4f, POD: %0.4f, FAR: %0.4f' % (train_loss_, val_loss_, test_loss, rmse, mae, csi, pod, far))
+                wandb.log({'epoch': epoch, 'test_loss': test_loss, 'rmse': rmse, 'mae': mae, 'csi': csi, 'pod': pod, 'far': far})
 
                 if save_npy:
                     np.save(os.path.join(exp_model_dir, 'predict.npy'), predict_epoch)
                     np.save(os.path.join(exp_model_dir, 'label.npy'), label_epoch)
                     np.save(os.path.join(exp_model_dir, 'time.npy'), time_epoch)
+                    np.save(os.path.join(exp_model_dir, 'R.npy'), R_epoch)
 
         train_loss_list.append(train_loss_)
         val_loss_list.append(val_loss_)
@@ -259,6 +306,8 @@ def main():
         print(
             'Train loss: %0.4f, Val loss: %0.4f, Test loss: %0.4f, RMSE: %0.2f, MAE: %0.2f, CSI: %0.4f, POD: %0.4f, FAR: %0.4f' % (
             train_loss_, val_loss_, test_loss, rmse, mae, csi, pod, far))
+
+        run.finish()
 
     exp_metric_str = '---------------------------------------\n' + \
                      'train_loss | mean: %0.4f std: %0.4f\n' % (get_mean_std(train_loss_list)) + \
