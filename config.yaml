@@ -1,16 +1,16 @@
 ---
 experiments:
   metero_use: ['2m_temperature', # = temperature
-               # 'boundary_layer_height',  # MISSING # Comment out for no_BPL experiments.
+               'boundary_layer_height',  # MISSING # Comment out for no_BPL experiments.
                # 'k_index', # MISSING
                'relative_humidity+950', # = humidity * 100
-               # 'surface_pressure', # MISSING
+               'surface_pressure', # MISSING
                'total_precipitation', # = ~ precipIntensity
-               'wind_speed', # 'u_component_of_wind+950', # speed = windSpeed * 3.6 (from m/s to km/h)
-               'wind_direction' # 'v_component_of_wind+950' # direc = windBearing
+               'u_component_of_wind+950', # speed = windSpeed * 3.6 (from m/s to km/h)
+               'v_component_of_wind+950' # direc = windBearing
                ]
   # if True, last two features should be (u,v) of wind, otherwise (speed [km/h], direc)
-  use_wind_coordinates: False 
+  use_wind_coordinates: True 
   # If True, timestamps are computed from start/end date, otherwise provided as first feature (format e.g.'2016-01-01 02:00:00')
   compute_time: False
   save_npy: True
@@ -26,18 +26,18 @@ experiments:
 train:
   batch_size: 32
   epochs: 50
-  exp_repeat: 10
+  exp_repeat: 3
   hist_len: 1
-  pred_len: 24
+  pred_len: 336
   weight_decay: 0.0005
   early_stop: 10
   lr: 0.0005
 
 device:
   cuda04:
-    knowair_fp: ./data/KnowAir_import.npy
+    knowair_fp: ./data/KnowAir_DS2.npy
     results_dir: ./data/results
-    torch_device: cuda:2
+    torch_device: cuda:4
 
 wandb:
   entity: split-sources
@@ -46,38 +46,21 @@ wandb:
 data:
   metero_var:
     [
-      #'time',
-      #'timestamp',
-      '2m_temperature', # = temperature
-      'relative_humidity+950', # = humidity * 100
-      'total_precipitation', # = ~ precipIntensity
-      'wind_speed', # 'u_component_of_wind+950', # speed = windSpeed * 3.6 (from m/s to km/h)
-      'wind_direction'
-    #  '100m_u_component_of_wind',
-    #  '100m_v_component_of_wind',
-    #  '2m_dewpoint_temperature',
-    #  '2m_temperature',
-    #  'boundary_layer_height',
-    #  'k_index',
-    #  'relative_humidity+950',
-    #  'relative_humidity+975',
-    #  'specific_humidity+950',
-    #  'surface_pressure',
-    #  'temperature+925',
-    #  'temperature+950',
-    #  'total_precipitation',
-    #  'u_component_of_wind+950',
-    #  'v_component_of_wind+950',
-    #  'vertical_velocity+950',
-    #  'vorticity+950'
+      '2m_temperature',
+      'boundary_layer_height',
+      'relative_humidity+950',
+      'surface_pressure',
+      'total_precipitation',
+      'u_component_of_wind+950', 
+      'v_component_of_wind+950'
      ]
 
 dataset:
-  data_start: [[2016, 1, 1, 2, 0], GMT] # 2016-01-01 02:00:00
+  data_start: [[2016, 1, 1, 8, 0], GMT] # 2016-01-01 08:00:00
   data_end: [[2020, 12, 31, 23, 0], GMT] # 2020-12-31 23:00:00
 
   1: 
-    train_start: [[2016, 1, 1], GMT]
+    train_start: [[2016, 1, 1], GMT] # TODO later also try training w/ 2018
     train_end: [[2017, 12, 31], GMT]
     val_start: [[2019, 1, 1], GMT]
     val_end: [[2019, 12, 31], GMT]
