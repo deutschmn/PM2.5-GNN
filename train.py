@@ -253,7 +253,7 @@ def main():
         print(f"Number of trainable parameters: {num_trainable_params}")
 
         optimizer = torch.optim.RMSprop(model.parameters(), lr=lr, weight_decay=weight_decay)
-        scheduler = StepLR(optimizer, step_size=3, gamma=0.1)
+        scheduler = StepLR(optimizer, step_size=3, gamma=0.3)
 
         exp_model_group_id = os.path.join('%s_%s' % (hist_len, pred_len), str(dataset_num), model_name, str(exp_time))
         exp_model_id = os.path.join(exp_model_group_id, '%02d' % exp_idx)
