@@ -21,6 +21,7 @@ from model.SplitGNN_3 import SplitGNN_3
 import arrow
 import torch
 import torch.autograd.profiler as profiler
+from torch.optim.lr_scheduler import StepLR
 from torch import nn
 from tqdm import tqdm
 import numpy as np
@@ -251,7 +252,8 @@ def main():
         num_trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
         print(f"Number of trainable parameters: {num_trainable_params}")
 
-        optimizer = torch.optim.RMSprop(model.parameters(), lr=lr, weight_decay=weight_decay) # TODO maybe use Adam?
+        optimizer = torch.optim.RMSprop(model.parameters(), lr=lr, weight_decay=weight_decay)
+        scheduler = StepLR(optimizer, step_size=3, gamma=0.1)
 
         exp_model_group_id = os.path.join('%s_%s' % (hist_len, pred_len), str(dataset_num), model_name, str(exp_time))
         exp_model_id = os.path.join(exp_model_group_id, '%02d' % exp_idx)
@@ -280,9 +282,11 @@ def main():
             train_loss = train(train_loader, model, optimizer)
             val_loss = val(val_loader, model)
 
+            scheduler.step()
+
             print('train_loss: %.4f' % train_loss)
             print('val_loss: %.4f' % val_loss)
-            wandb.log({'epoch': epoch, 'train_loss': train_loss, 'val_loss': val_loss})
+            wandb.log({'epoch': epoch, 'train_loss': train_loss, 'val_loss': val_loss, 'lr': optimizer.param_groups[0]['lr']})
 
             if epoch - best_epoch > early_stop:
                 break
