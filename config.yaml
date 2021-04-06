@@ -20,21 +20,21 @@ experiments:
 #  model: GRU
 #  model: GC_LSTM
 #  model: nodesFC_GRU
-#  model: PM25_GNN
+  model: PM25_GNN
 #  model: SplitGNN_1
 #  model: SplitGNN_2
-  model: SplitGNN_3
+#  model: SplitGNN_3
 #  model: PM25_GNN_nosub
 
 train:
   batch_size: 32
   epochs: 50
-  exp_repeat: 2
+  exp_repeat: 3
   hist_len: 0 # if 0, not using PM25 as inputs at all
   pred_len: 336 # = 24 hours * 14 days 
 # pred_len: 1440 # = 24 hours * 60 days
-  weight_decay: 0.0005
-  early_stop: 10
+  weight_decay: 0 # disable for LR experiments
+  early_stop: 50 # effectively disable early stopping
   lr: 0.0005
 
 device:
