@@ -33,8 +33,8 @@ train:
   hist_len: 0 # if 0, not using PM25 as inputs at all
   pred_len: 336 # = 24 hours * 14 days 
 # pred_len: 1440 # = 24 hours * 60 days
-  weight_decay: 0 # disable for LR experiments
-  early_stop: 50 # effectively disable early stopping
+  weight_decay: 0.0005
+  early_stop: 10
   lr: 0.0005
 
 device:
