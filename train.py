@@ -44,6 +44,9 @@ pred_len = config['train']['pred_len']
 weight_decay = config['train']['weight_decay']
 early_stop = config['train']['early_stop']
 lr = config['train']['lr']
+step_lr_step_size = config['train']['step_lr']['step_size']
+step_lr_gamma = config['train']['step_lr']['gamma']
+
 results_dir = file_dir['results_dir']
 dataset_num = config['experiments']['dataset_num']
 exp_model = config['experiments']['model']
@@ -253,7 +256,11 @@ def main():
         print(f"Number of trainable parameters: {num_trainable_params}")
 
         optimizer = torch.optim.RMSprop(model.parameters(), lr=lr, weight_decay=weight_decay)
-        scheduler = StepLR(optimizer, step_size=3, gamma=0.3)
+
+        if step_lr_step_size is not None and step_lr_gamma is not None:
+            scheduler = StepLR(optimizer, step_size=step_lr_step_size, gamma=step_lr_gamma)
+        else:
+            scheduler = None
 
         exp_model_group_id = os.path.join('%s_%s' % (hist_len, pred_len), str(dataset_num), model_name, str(exp_time))
         exp_model_id = os.path.join(exp_model_group_id, '%02d' % exp_idx)
@@ -282,7 +289,8 @@ def main():
             train_loss = train(train_loader, model, optimizer)
             val_loss = val(val_loader, model)
 
-            scheduler.step()
+            if scheduler is not None:
+                scheduler.step()
 
             print('train_loss: %.4f' % train_loss)
             print('val_loss: %.4f' % val_loss)
