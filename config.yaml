@@ -24,7 +24,7 @@ experiments:
 #  model: SplitGNN_1
 #  model: SplitGNN_2
 #  model: SplitGNN_3
-  model: SplitGNN_3_1
+  model: SplitGNN_3_2
 #  model: PM25_GNN_nosub
 
 train:
