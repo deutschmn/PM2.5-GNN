@@ -27,7 +27,7 @@ class SplitGNN_3_2(nn.Module):
         self.in_dim = in_dim
         self.hid_dim = 32
 
-        self.gru_cell = GRUCell(1, self.hid_dim) # just PM2.5 from prev. iteration
+        self.gru_cell = GRUCell(2 + 1, self.hid_dim) # just 2 features (hour, weekday) + PM2.5 from prev. iteration
         self.node_mlp = Linear(self.hid_dim, 1)
         
         # graph attributes
@@ -120,8 +120,10 @@ class SplitGNN_3_2(nn.Module):
             R_list.append(R)
 
             # compute local phenomena 
-            # -> this model actually only considers previous cn (so PM2.5 values), not the local weather
-            node_in = cn
+            # -> this model actually only considers hour (index 7), day of week (index 8)
+            # and previous PM2.5 values (cn)
+            in_indices = [7, 8]
+            node_in = torch.cat([x[:,:,in_indices], cn], dim=2)
             hn = self.gru_cell(node_in, hn)
             hn_reshaped = hn.view(self.batch_size, self.num_nodes, self.hid_dim)
             hn_reshaped = self.node_mlp(hn_reshaped)
