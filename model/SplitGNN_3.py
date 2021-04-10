@@ -57,8 +57,6 @@ class SplitGNN_3(nn.Module):
         node_src = x[:, edge_src]
         node_target = x[:, edge_target]
 
-        # TODO make sure we're really using the wind here and not some other feature
-        # FIXME really, we're adding wind_std to the wind direction?
         src_wind = node_src[:,:,-2:] * self.wind_std[None,None,:] + self.wind_mean[None,None,:]
         src_wind_speed = src_wind[:, :, 0]
         src_wind_direc = src_wind[:,:,1]
