@@ -37,8 +37,8 @@ train:
   early_stop: 10
   lr: 0.0005
   step_lr:
-    step_size: ~
-    gamma: ~
+    step_size: 3
+    gamma: 0.3
 
 device:
   cuda04:
@@ -46,7 +46,7 @@ device:
     city_fp: ./data/city_DS2.txt
     altitude_fp: ./data/altitude.npy
     results_dir: ./data/results
-    torch_device: cuda:10
+    torch_device: cuda:1
 
 wandb:
   entity: split-sources
