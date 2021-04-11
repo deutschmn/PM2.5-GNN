@@ -20,6 +20,7 @@ from model.SplitGNN_3 import SplitGNN_3
 from model.SplitGNN_3_1 import SplitGNN_3_1
 from model.SplitGNN_3_2 import SplitGNN_3_2
 from model.SplitGNN_3_3 import SplitGNN_3_3
+from model.SplitGNN_3_4 import SplitGNN_3_4
 
 import arrow
 import torch
@@ -142,6 +143,8 @@ def get_model():
         return SplitGNN_3_2(hist_len, pred_len, in_dim, city_num, batch_size, device, graph.edge_index, graph.edge_attr, wind_mean, wind_std)
     elif exp_model == 'SplitGNN_3_3':
         return SplitGNN_3_3(hist_len, pred_len, in_dim, city_num, batch_size, device, graph.edge_index, graph.edge_attr, wind_mean, wind_std)
+    elif exp_model == 'SplitGNN_3_4':
+        return SplitGNN_3_4(hist_len, pred_len, in_dim, city_num, batch_size, device, graph.edge_index, graph.edge_attr, wind_mean, wind_std)
     else:
         raise Exception('Wrong model name!')
 
