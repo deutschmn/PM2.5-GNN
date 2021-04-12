@@ -29,7 +29,7 @@ class SplitGNN_3_4(nn.Module):
 
         self.in_indices = [0, 1, 2, 3, 4, 7, 8] # indices that we take from x (= all except wind)
         self.gru_cell = GRUCell(len(self.in_indices) + 1, self.hid_dim)
-        self.batch_norm = nn.BatchNorm1d(self.num_nodes).to(self.device)
+        self.batch_norm = nn.BatchNorm1d(self.num_nodes, affine=False).to(self.device)
         self.node_mlp = Linear(self.hid_dim, 1)
         
         # graph attributes
