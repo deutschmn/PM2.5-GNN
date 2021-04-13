@@ -125,8 +125,8 @@ class SplitGNN_3_4(nn.Module):
             node_in = torch.cat([x[:,:,self.in_indices], cn], dim=2)
             hn = self.gru_cell(node_in, hn)
             hn_reshaped = hn.view(self.batch_size, self.num_nodes, self.hid_dim)
-            hn_reshaped = self.batch_norm(hn_reshaped)
             hn_reshaped = self.node_mlp(hn_reshaped)
+            hn_reshaped = self.batch_norm(hn_reshaped)
             
             # execute transfers
             cn = torch.matmul(R, hn_reshaped)
