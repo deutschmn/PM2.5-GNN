@@ -15,15 +15,15 @@ experiments:
   save_npy: True
   dataset_num: 1
   model: SplitGNN_3
-  model_config:
-    node_gru_hidden_dim: 32
-    edge_gru_hidden_dim: 128
-    edge_mlp_hidden_dim: 64
+  
+node_gru_hidden_dim: 32
+edge_gru_hidden_dim: 128
+edge_mlp_hidden_dim: 64
 
 train:
   batch_size: 32
   epochs: 50
-  exp_repeat: 5
+  exp_repeat: 1
   hist_len: 0 # if 0, not using PM25 as inputs at all
   pred_len: 168 # = 1 week
   weight_decay: 0.0005
@@ -40,10 +40,6 @@ device:
     altitude_fp: ./data/altitude.npy
     results_dir: ./data/results
     torch_device: cuda:10
-
-wandb:
-  entity: split-sources
-  project: split-pollution-sources
 
 data:
   metero_var:

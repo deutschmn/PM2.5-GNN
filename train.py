@@ -54,9 +54,9 @@ step_lr_gamma = config['train']['step_lr']['gamma']
 results_dir = file_dir['results_dir']
 dataset_num = config['experiments']['dataset_num']
 exp_model = config['experiments']['model']
-node_gru_hidden_dim = config['experiments']['model_config']['node_gru_hidden_dim']
-edge_gru_hidden_dim = config['experiments']['model_config']['edge_gru_hidden_dim']
-edge_mlp_hidden_dim = config['experiments']['model_config']['edge_mlp_hidden_dim']
+node_gru_hidden_dim = config['node_gru_hidden_dim']
+edge_gru_hidden_dim = config['edge_gru_hidden_dim']
+edge_mlp_hidden_dim = config['edge_mlp_hidden_dim']
 
 exp_repeat = config['train']['exp_repeat']
 save_npy = config['experiments']['save_npy']
@@ -281,10 +281,7 @@ def main():
         exp_model_group_id = os.path.join('%s_%s' % (hist_len, pred_len), str(dataset_num), model_name, str(exp_time))
         exp_model_id = os.path.join(exp_model_group_id, '%02d' % exp_idx)
 
-        run = wandb.init(entity=config['wandb']['entity'], 
-                    project=config['wandb']['project'], 
-                    config=config['train'], 
-                    name=exp_model_id)
+        run = wandb.init(reinit=True, name=exp_model_id)
         wandb.config.exp_group = exp_model_group_id
         wandb.config.model = model_name
         wandb.watch(model)

@@ -33,8 +33,8 @@ class HazeData(data.Dataset):
         else:
             raise Exception('Wrong Flag!')
 
-        self.start_time = self._get_time(config['dataset'][dataset_num][start_time_str])
-        self.end_time = self._get_time(config['dataset'][dataset_num][end_time_str])
+        self.start_time = self._get_time(config['dataset'][f"{dataset_num}"][start_time_str])
+        self.end_time = self._get_time(config['dataset'][f"{dataset_num}"][end_time_str])
         self.data_start = self._get_time(config['dataset']['data_start'])
         self.data_end = self._get_time(config['dataset']['data_end'])
 
