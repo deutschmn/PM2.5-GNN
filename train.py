@@ -54,6 +54,10 @@ step_lr_gamma = config['train']['step_lr']['gamma']
 results_dir = file_dir['results_dir']
 dataset_num = config['experiments']['dataset_num']
 exp_model = config['experiments']['model']
+node_gru_hidden_dim = config['experiments']['model_config']['node_gru_hidden_dim']
+edge_gru_hidden_dim = config['experiments']['model_config']['edge_gru_hidden_dim']
+edge_mlp_hidden_dim = config['experiments']['model_config']['edge_mlp_hidden_dim']
+
 exp_repeat = config['train']['exp_repeat']
 save_npy = config['experiments']['save_npy']
 criterion = nn.MSELoss()
@@ -136,7 +140,7 @@ def get_model():
     elif exp_model == 'SplitGNN_2':
         return SplitGNN_2(hist_len, pred_len, in_dim, city_num, batch_size, device, graph.edge_index, graph.edge_attr, wind_mean, wind_std)
     elif exp_model == 'SplitGNN_3':
-        return SplitGNN_3(hist_len, pred_len, in_dim, city_num, batch_size, device, graph.edge_index, graph.edge_attr, wind_mean, wind_std)
+        return SplitGNN_3(hist_len, pred_len, in_dim, city_num, batch_size, device, graph.edge_index, graph.edge_attr, wind_mean, wind_std, node_gru_hidden_dim, edge_gru_hidden_dim, edge_mlp_hidden_dim)
     elif exp_model == 'SplitGNN_3_1':
         return SplitGNN_3_1(hist_len, pred_len, in_dim, city_num, batch_size, device, graph.edge_index, graph.edge_attr, wind_mean, wind_std)
     elif exp_model == 'SplitGNN_3_2':
