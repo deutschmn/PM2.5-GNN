@@ -281,7 +281,7 @@ def main():
         exp_model_group_id = os.path.join('%s_%s' % (hist_len, pred_len), str(dataset_num), model_name, str(exp_time))
         exp_model_id = os.path.join(exp_model_group_id, '%02d' % exp_idx)
 
-        run = wandb.init(reinit=True, name=exp_model_id)
+        run = wandb.init(reinit=True, name=exp_model_id, entity="split-sources", project="split-pollution-sources", config=config)
         wandb.config.exp_group = exp_model_group_id
         wandb.config.model = model_name
         wandb.watch(model)

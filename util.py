@@ -10,7 +10,7 @@ conf_fp = os.path.join(proj_dir, 'config.yaml')
 with open(conf_fp) as f:
     config = yaml.load(f, Loader=yaml.FullLoader)
 
-wandb.init(entity="split-sources", project="split-pollution-sources", config=config)
+wandb.init(reinit=True, entity="split-sources", project="split-pollution-sources", config=config)
 config = wandb.config
 
 nodename = os.uname().nodename
