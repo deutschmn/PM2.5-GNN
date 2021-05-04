@@ -18,6 +18,7 @@ scipy==1.3.1
 tqdm==4.38.0
 xarray==0.14.0
 bresenham==0.2.1
+wandb==0.10.26 # 0.10.29 has a bug with full back hook
 
 # Use Torch 1.8.0 with Cuda 10.2 (11.1 crashes):
 
