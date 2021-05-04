@@ -1,14 +1,12 @@
 import torch
 from torch import nn
 from model.cells import GRUCell
-from torch.nn import Sequential, Linear, Sigmoid
+from torch.nn import Sequential, Linear
 import numpy as np
-from torch_scatter import scatter_add#, scatter_sub  # no scatter sub in lastest PyG
 from torch.nn import functional as F
-from torch.nn import Parameter
 
 class SplitGNN_3_2(nn.Module):
-    def __init__(self, hist_len, pred_len, in_dim, city_num, batch_size, device, edge_index, edge_attr, wind_mean, wind_std):
+    def __init__(self, hist_len, pred_len, in_dim, city_num, batch_size, device, edge_index, edge_attr, wind_mean, wind_std, node_gru_hidden_dim, edge_gru_hidden_dim, edge_mlp_hidden_dim):
         super(SplitGNN_3_2, self).__init__()
 
         self.returns_r = True
@@ -25,7 +23,7 @@ class SplitGNN_3_2(nn.Module):
         self.batch_size = batch_size
 
         self.in_dim = in_dim
-        self.hid_dim = 32
+        self.hid_dim = node_gru_hidden_dim
 
         self.in_indices = [0, 1, 2, 3, 4, 7, 8] # indices that we take from x (= all except wind)
         self.gru_cell = GRUCell(len(self.in_indices) + 1, self.hid_dim)
@@ -38,8 +36,8 @@ class SplitGNN_3_2(nn.Module):
         self.wind_mean = torch.Tensor(np.float32(wind_mean)).to(self.device)
         self.wind_std = torch.Tensor(np.float32(wind_std)).to(self.device)
 
-        self.edge_mlp_hidden_dim = 128
-        self.edge_gru_hidden_dim = 64
+        self.edge_mlp_hidden_dim = edge_mlp_hidden_dim
+        self.edge_gru_hidden_dim = edge_gru_hidden_dim
         self.edge_gru = GRUCell(3, self.edge_gru_hidden_dim)
         self.edge_mlp = Sequential(Linear(self.edge_gru_hidden_dim, self.edge_mlp_hidden_dim),
                                    nn.ReLU(),

@@ -135,19 +135,19 @@ def get_model():
         return PM25_GNN_nosub(hist_len, pred_len, in_dim, city_num, batch_size, device, graph.edge_index, graph.edge_attr, wind_mean, wind_std)
     elif exp_model == 'SplitGNN':
         return SplitGNN(hist_len, pred_len, in_dim, city_num, batch_size, device, graph.edge_index, graph.edge_attr, wind_mean, wind_std)
-    elif exp_model == 'SplitGNN_1':
+    elif exp_model == 'SplitGNN_1': # TODO remove
         return SplitGNN_1(hist_len, pred_len, in_dim, city_num, batch_size, device, graph.edge_index, graph.edge_attr, wind_mean, wind_std)
-    elif exp_model == 'SplitGNN_2':
+    elif exp_model == 'SplitGNN_2': # TODO remove
         return SplitGNN_2(hist_len, pred_len, in_dim, city_num, batch_size, device, graph.edge_index, graph.edge_attr, wind_mean, wind_std)
     elif exp_model == 'SplitGNN_3':
         return SplitGNN_3(hist_len, pred_len, in_dim, city_num, batch_size, device, graph.edge_index, graph.edge_attr, wind_mean, wind_std, node_gru_hidden_dim, edge_gru_hidden_dim, edge_mlp_hidden_dim)
-    elif exp_model == 'SplitGNN_3_1':
+    elif exp_model == 'SplitGNN_3_1': # TODO remove
         return SplitGNN_3_1(hist_len, pred_len, in_dim, city_num, batch_size, device, graph.edge_index, graph.edge_attr, wind_mean, wind_std)
     elif exp_model == 'SplitGNN_3_2':
-        return SplitGNN_3_2(hist_len, pred_len, in_dim, city_num, batch_size, device, graph.edge_index, graph.edge_attr, wind_mean, wind_std)
-    elif exp_model == 'SplitGNN_3_3':
+        return SplitGNN_3_2(hist_len, pred_len, in_dim, city_num, batch_size, device, graph.edge_index, graph.edge_attr, wind_mean, wind_std, node_gru_hidden_dim, edge_gru_hidden_dim, edge_mlp_hidden_dim)
+    elif exp_model == 'SplitGNN_3_3': # TODO remove
         return SplitGNN_3_3(hist_len, pred_len, in_dim, city_num, batch_size, device, graph.edge_index, graph.edge_attr, wind_mean, wind_std)
-    elif exp_model == 'SplitGNN_3_4':
+    elif exp_model == 'SplitGNN_3_4': # TODO remove
         return SplitGNN_3_4(hist_len, pred_len, in_dim, city_num, batch_size, device, graph.edge_index, graph.edge_attr, wind_mean, wind_std)
     else:
         raise Exception('Wrong model name!')
