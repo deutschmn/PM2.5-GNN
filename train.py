@@ -13,14 +13,7 @@ from model.GC_LSTM import GC_LSTM
 from model.nodesFC_GRU import nodesFC_GRU
 from model.PM25_GNN import PM25_GNN
 from model.PM25_GNN_nosub import PM25_GNN_nosub
-from model.SplitGNN import SplitGNN
-from model.SplitGNN_1 import SplitGNN_1
-from model.SplitGNN_2 import SplitGNN_2
 from model.SplitGNN_3 import SplitGNN_3
-from model.SplitGNN_3_1 import SplitGNN_3_1
-from model.SplitGNN_3_2 import SplitGNN_3_2
-from model.SplitGNN_3_3 import SplitGNN_3_3
-from model.SplitGNN_3_4 import SplitGNN_3_4
 
 import arrow
 import torch
@@ -133,22 +126,8 @@ def get_model():
         return PM25_GNN(hist_len, pred_len, in_dim, city_num, batch_size, device, graph.edge_index, graph.edge_attr, wind_mean, wind_std)
     elif exp_model == 'PM25_GNN_nosub':
         return PM25_GNN_nosub(hist_len, pred_len, in_dim, city_num, batch_size, device, graph.edge_index, graph.edge_attr, wind_mean, wind_std)
-    elif exp_model == 'SplitGNN':
-        return SplitGNN(hist_len, pred_len, in_dim, city_num, batch_size, device, graph.edge_index, graph.edge_attr, wind_mean, wind_std)
-    elif exp_model == 'SplitGNN_1': # TODO remove
-        return SplitGNN_1(hist_len, pred_len, in_dim, city_num, batch_size, device, graph.edge_index, graph.edge_attr, wind_mean, wind_std)
-    elif exp_model == 'SplitGNN_2': # TODO remove
-        return SplitGNN_2(hist_len, pred_len, in_dim, city_num, batch_size, device, graph.edge_index, graph.edge_attr, wind_mean, wind_std)
     elif exp_model == 'SplitGNN_3':
         return SplitGNN_3(hist_len, pred_len, in_dim, city_num, batch_size, device, graph.edge_index, graph.edge_attr, wind_mean, wind_std, node_gru_hidden_dim, edge_gru_hidden_dim, edge_mlp_hidden_dim)
-    elif exp_model == 'SplitGNN_3_1': # TODO remove
-        return SplitGNN_3_1(hist_len, pred_len, in_dim, city_num, batch_size, device, graph.edge_index, graph.edge_attr, wind_mean, wind_std)
-    elif exp_model == 'SplitGNN_3_2':
-        return SplitGNN_3_2(hist_len, pred_len, in_dim, city_num, batch_size, device, graph.edge_index, graph.edge_attr, wind_mean, wind_std, node_gru_hidden_dim, edge_gru_hidden_dim, edge_mlp_hidden_dim)
-    elif exp_model == 'SplitGNN_3_3': # TODO remove
-        return SplitGNN_3_3(hist_len, pred_len, in_dim, city_num, batch_size, device, graph.edge_index, graph.edge_attr, wind_mean, wind_std)
-    elif exp_model == 'SplitGNN_3_4': # TODO remove
-        return SplitGNN_3_4(hist_len, pred_len, in_dim, city_num, batch_size, device, graph.edge_index, graph.edge_attr, wind_mean, wind_std)
     else:
         raise Exception('Wrong model name!')
 

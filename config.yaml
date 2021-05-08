@@ -17,29 +17,29 @@ experiments:
   model: SplitGNN_3
   
 node_gru_hidden_dim: 16
-edge_gru_hidden_dim: 128
-edge_mlp_hidden_dim: 32
+edge_gru_hidden_dim: 64
+edge_mlp_hidden_dim: 16
 
 train:
   batch_size: 32
   epochs: 50
   exp_repeat: 5
-  hist_len: 0 # if 0, not using PM25 as inputs at all
-  pred_len: 24
+  hist_len: 1 # if 0, not using PM25 as inputs at all
+  pred_len: 72
   weight_decay: 0.0005
   early_stop: 5
   lr: 0.0005
   step_lr:
     step_size: 3
-    gamma: 0.3
+    gamma: 0.5
 
 device:
   cuda04:
-    knowair_fp: ./data/KnowAir_DS3_city.npy
-    city_fp: ./data/city_DS3_city.txt
+    knowair_fp: ./data/KnowAir_DS2.npy
+    city_fp: ./data/city_DS2.txt
     altitude_fp: ./data/altitude.npy
     results_dir: ./data/results
-    torch_device: cuda:10
+    torch_device: cuda:5
 
 data:
   metero_var:
