@@ -84,6 +84,9 @@ class SplitGNN_3(nn.Module):
 
 
     def forward(self, pm25_hist, feature):
+        assert feature.shape[:3] == (self.batch_size, self.hist_len + self.pred_len, self.num_nodes)
+        assert pm25_hist.shape == (self.batch_size, self.hist_len, self.num_nodes, 1)
+
         pm25_pred = []
         R_list = []
 
@@ -96,16 +99,10 @@ class SplitGNN_3(nn.Module):
         c0 = torch.zeros(self.batch_size, self.num_nodes, 1).to(self.device)
         cn = c0
 
-        if pm25_hist.shape[1] == 0: # not using PM2.5 at all
-            xn = None
-        else:
-            xn = pm25_hist[:, -1]
         for i in range(self.pred_len):
-            if pm25_hist.shape[1] == 0: # not using PM2.5 at all
-                x = feature[:, self.hist_len + i]
-            else:
-                x = torch.cat((xn, feature[:, self.hist_len + i]), dim=-1)
-
+            x = feature[:, self.hist_len + i]
+            if self.hist_len > 0:
+                x = torch.cat((pm25_hist[:, -1], x), dim=-1)
             x = x.contiguous()
 
             # compute transfers
