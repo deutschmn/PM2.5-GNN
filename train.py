@@ -14,6 +14,7 @@ from model.nodesFC_GRU import nodesFC_GRU
 from model.PM25_GNN import PM25_GNN
 from model.PM25_GNN_nosub import PM25_GNN_nosub
 from model.SplitGNN_3 import SplitGNN_3
+from model.SplitGNN_4 import LocalModel, OracleModel, TransferModel
 
 import arrow
 import torch
@@ -128,11 +129,26 @@ def get_model():
         return PM25_GNN_nosub(hist_len, pred_len, in_dim, city_num, batch_size, device, graph.edge_index, graph.edge_attr, wind_mean, wind_std)
     elif exp_model == 'SplitGNN_3':
         return SplitGNN_3(hist_len, pred_len, in_dim, city_num, batch_size, device, graph.edge_index, graph.edge_attr, wind_mean, wind_std, node_gru_hidden_dim, edge_gru_hidden_dim, edge_mlp_hidden_dim)
+    elif exp_model == 'SplitGNN_4':
+        node_module = OracleModel(node_gru_hidden_dim, city_num, batch_size, device)
+        return TransferModel(hist_len, pred_len, in_dim, city_num, batch_size, device, graph.edge_index, graph.edge_attr, wind_mean, wind_std, edge_gru_hidden_dim, edge_mlp_hidden_dim, node_module)
     else:
         raise Exception('Wrong model name!')
 
 
-def train(train_loader, model, optimizer):
+def train(train_loader, model, optimizer, model_input="hist"):
+    """Trains the model
+
+    Args:
+        train_loader (DataLoader): load training data
+        model (Module): model to train
+        optimizer: optimizer to use
+        model_input (str, optional): "hist" for passing historical pm25 values to the model or
+        "label" to pass true labels (for pre-training). Defaults to "hist".
+
+    Returns:
+        float: train loss
+    """
     model.train()
     train_loss = 0
     for batch_idx, data in enumerate(tqdm(train_loader)):
@@ -142,7 +158,13 @@ def train(train_loader, model, optimizer):
         pm25_label = pm25[:, hist_len:]
         pm25_hist = pm25[:, :hist_len]
 
-        out = model(pm25_hist, feature)
+        if model_input == "hist":
+            out = model(pm25_hist, feature)
+        elif model_input == "label":
+            out = model(pm25, feature)
+        else:
+            raise RuntimeError(f"Unknown model input type '{model_input}'")
+
         if hasattr(model, 'returns_r') and model.returns_r:
             pm25_pred, _ = out
         else:
@@ -157,7 +179,7 @@ def train(train_loader, model, optimizer):
     return train_loss
 
 
-def val(val_loader, model):
+def val(val_loader, model, model_input="hist"):
     model.eval()
     val_loss = 0
     for batch_idx, data in enumerate(tqdm(val_loader)):
@@ -167,7 +189,13 @@ def val(val_loader, model):
         pm25_label = pm25[:, hist_len:]
         pm25_hist = pm25[:, :hist_len]
 
-        out = model(pm25_hist, feature)
+        if model_input == "hist":
+            out = model(pm25_hist, feature)
+        elif model_input == "label":
+            out = model(pm25, feature)
+        else:
+            raise RuntimeError(f"Unknown model input type '{model_input}'")
+
         if hasattr(model, 'returns_r') and model.returns_r:
             pm25_pred, _ = out
         else:
@@ -180,7 +208,7 @@ def val(val_loader, model):
     return val_loss
 
 
-def test(test_loader, model):
+def test(test_loader, model, model_input="hist"):
     model.eval()
     predict_list = []
     R_list = []
@@ -194,7 +222,13 @@ def test(test_loader, model):
         pm25_label = pm25[:, hist_len:]
         pm25_hist = pm25[:, :hist_len]
 
-        out = model(pm25_hist, feature)
+        if model_input == "hist":
+            out = model(pm25_hist, feature)
+        elif model_input == "label":
+            out = model(pm25, feature)
+        else:
+            raise RuntimeError(f"Unknown model input type '{model_input}'")
+
         if hasattr(model, 'returns_r') and model.returns_r:
             pm25_pred, R = out
         else:
@@ -226,6 +260,61 @@ def get_mean_std(data_list):
     return data.mean(), data.std()
 
 
+def pre_train(model, exp_model_id, exp_model_group_id, train_loader, val_loader, test_loader):
+    optimizer = torch.optim.RMSprop(model.parameters(), lr=lr, weight_decay=weight_decay)
+
+    if step_lr_step_size is not None and step_lr_gamma is not None:
+        scheduler = StepLR(optimizer, step_size=step_lr_step_size, gamma=step_lr_gamma)
+    else:
+        scheduler = None
+
+    run = wandb.init(reinit=True, name=exp_model_id + "_pre-train", entity="split-sources", project="split-pollution-sources", config=config)
+    wandb.config.exp_group = exp_model_group_id
+    wandb.config.model = type(model.node_module).__name__
+    # wandb.watch(model)
+
+    val_loss_min = 100000
+    best_epoch = 0
+
+    train_loss_, val_loss_ = 0, 0
+
+    for epoch in range(epochs):
+        print('\nTrain epoch %s:' % (epoch))
+
+        train_loss = train(train_loader, model, optimizer, model_input="label")
+        val_loss = val(val_loader, model, model_input="label")
+
+        if scheduler is not None:
+            scheduler.step()
+
+        print('train_loss: %.4f' % train_loss)
+        print('val_loss: %.4f' % val_loss)
+        wandb.log({'epoch': epoch, 'train_loss': train_loss, 'val_loss': val_loss, 'lr': optimizer.param_groups[0]['lr']})
+
+        if epoch - best_epoch > early_stop:
+            break
+
+        if val_loss < val_loss_min:
+            val_loss_min = val_loss
+            best_epoch = epoch
+            print('Minimum val loss!!!')
+
+            test_loss, predict_epoch, label_epoch, time_epoch, R_epoch = test(test_loader, model, model_input="label")
+            train_loss_, val_loss_ = train_loss, val_loss
+            rmse, mae, csi, pod, far = get_metric(predict_epoch, label_epoch)
+            print('Train loss: %0.4f, Val loss: %0.4f, Test loss: %0.4f, RMSE: %0.2f, MAE: %0.2f, CSI: %0.4f, POD: %0.4f, FAR: %0.4f' % (train_loss_, val_loss_, test_loss, rmse, mae, csi, pod, far))
+            wandb.log({'epoch': epoch, 'test_loss': test_loss, 'rmse': rmse, 'mae': mae, 'csi': csi, 'pod': pod, 'far': far})
+
+    run.finish()
+
+    print("Done pre-training")
+
+    node_module = LocalModel(model.in_dim, model.hist_len, model.node_module.hid_dim, model.node_module.num_nodes, model.node_module.batch_size, model.node_module.device)
+    model.node_module = node_module
+
+    return model
+
+
 def main():
     exp_info = get_exp_info()
     print(exp_info)
@@ -241,7 +330,7 @@ def main():
         val_loader = torch.utils.data.DataLoader(val_data, batch_size=batch_size, shuffle=False, drop_last=True)
         test_loader = torch.utils.data.DataLoader(test_data, batch_size=batch_size, shuffle=False, drop_last=True)
 
-        model = get_model() # TODO maybe use DataParallel?
+        model = get_model()
         model = model.to(device)
         model_name = type(model).__name__
 
@@ -250,15 +339,18 @@ def main():
         num_trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
         print(f"Number of trainable parameters: {num_trainable_params}")
 
+        exp_model_group_id = os.path.join('%s_%s' % (hist_len, pred_len), str(dataset_num), model_name, str(exp_time))
+        exp_model_id = os.path.join(exp_model_group_id, '%02d' % exp_idx)
+
+        if isinstance(model, TransferModel):
+            model = pre_train(model, exp_model_id, exp_model_group_id, train_loader, val_loader, test_loader)
+
         optimizer = torch.optim.RMSprop(model.parameters(), lr=lr, weight_decay=weight_decay)
 
         if step_lr_step_size is not None and step_lr_gamma is not None:
             scheduler = StepLR(optimizer, step_size=step_lr_step_size, gamma=step_lr_gamma)
         else:
             scheduler = None
-
-        exp_model_group_id = os.path.join('%s_%s' % (hist_len, pred_len), str(dataset_num), model_name, str(exp_time))
-        exp_model_id = os.path.join(exp_model_group_id, '%02d' % exp_idx)
 
         run = wandb.init(reinit=True, name=exp_model_id, entity="split-sources", project="split-pollution-sources", config=config)
         wandb.config.exp_group = exp_model_group_id

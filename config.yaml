@@ -14,7 +14,7 @@ experiments:
   compute_time: False
   save_npy: True
   dataset_num: 1
-  model: SplitGNN_3
+  model: SplitGNN_4
   
 node_gru_hidden_dim: 16
 edge_gru_hidden_dim: 64
@@ -22,7 +22,7 @@ edge_mlp_hidden_dim: 16
 
 train:
   batch_size: 32
-  epochs: 50
+  epochs: 30
   exp_repeat: 5
   hist_len: 1 # if 0, not using PM25 as inputs at all
   pred_len: 72
@@ -30,7 +30,7 @@ train:
   early_stop: 5
   lr: 0.0005
   step_lr:
-    step_size: 3
+    step_size: 10
     gamma: 0.5
 
 device:
@@ -39,7 +39,7 @@ device:
     city_fp: ./data/city_DS2.txt
     altitude_fp: ./data/altitude.npy
     results_dir: ./data/results
-    torch_device: cuda:5
+    torch_device: cuda:15
 
 data:
   metero_var:
