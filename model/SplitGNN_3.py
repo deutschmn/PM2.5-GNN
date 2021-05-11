@@ -47,25 +47,25 @@ class SplitGNN_3(nn.Module):
         self.edge_restructure_idx = self.edge_restructure_idx.repeat(self.batch_size).view(self.batch_size, -1)
 
 
-    def generate_edge_attributes(self, x):
+    def generate_edge_attributes(self, wind):
         self.edge_index = self.edge_index.to(self.device)
         self.edge_attr = self.edge_attr.to(self.device)
 
         edge_src, edge_target = self.edge_index
-        node_src = x[:, edge_src]
-        node_target = x[:, edge_target]
+        node_src = wind[:, edge_src]
+        node_target = wind[:, edge_target]
 
-        src_wind = node_src[:,:,-2:] * self.wind_std[None,None,:] + self.wind_mean[None,None,:]
+        src_wind = node_src * self.wind_std[None,None,:] + self.wind_mean[None,None,:]
         src_wind_speed = src_wind[:, :, 0]
         src_wind_direc = src_wind[:,:,1]
-        self.edge_attr_ = self.edge_attr[None, :, :].repeat(node_src.size(0), 1, 1)
+        self.edge_attr_ = self.edge_attr[None, :, :].repeat(self.batch_size, 1, 1)
         city_dist = self.edge_attr_[:,:,0]
         city_direc = self.edge_attr_[:,:,1]
 
         theta = torch.abs(city_direc - src_wind_direc)
         edge_weight = F.relu(3 * src_wind_speed * torch.cos(theta) / city_dist) # advection S [eq. 4]
         edge_weight = edge_weight.to(self.device)
-        edge_attr_norm = self.edge_attr_norm[None, :, :].repeat(x.size(0), 1, 1).to(self.device)
+        edge_attr_norm = self.edge_attr_norm[None, :, :].repeat(self.batch_size, 1, 1).to(self.device)
         edge_atts = torch.cat([edge_attr_norm, edge_weight[:,:,None]], dim=-1)
 
         return edge_atts
@@ -106,7 +106,8 @@ class SplitGNN_3(nn.Module):
             x = x.contiguous()
 
             # compute transfers
-            edge_atts = self.generate_edge_attributes(x)
+            current_wind = x[:,:, -2:]
+            edge_atts = self.generate_edge_attributes(current_wind)
             en = self.edge_gru(edge_atts, en)
             en_reshaped = en.view(self.batch_size, self.num_edges, self.edge_gru_hidden_dim)
             en_rep = self.edge_mlp(en_reshaped).squeeze()
