@@ -15,6 +15,7 @@ from model.PM25_GNN import PM25_GNN
 from model.PM25_GNN_nosub import PM25_GNN_nosub
 from model.SplitGNN_3 import SplitGNN_3
 from model.SplitGNN_4 import LocalModel, OracleModel, TransferModel
+from model.SplitGNN_5 import SplitGNN_5
 
 import arrow
 import torch
@@ -132,6 +133,8 @@ def get_model():
     elif exp_model == 'SplitGNN_4':
         node_module = OracleModel(node_gru_hidden_dim, city_num, batch_size, device)
         return TransferModel(hist_len, pred_len, in_dim, city_num, batch_size, device, graph.edge_index, graph.edge_attr, wind_mean, wind_std, edge_gru_hidden_dim, edge_mlp_hidden_dim, node_module)
+    elif exp_model == 'SplitGNN_5':
+        return SplitGNN_5(hist_len, pred_len, in_dim, city_num, batch_size, device, graph.edge_index, graph.edge_attr, wind_mean, wind_std, node_gru_hidden_dim, edge_gru_hidden_dim, edge_mlp_hidden_dim)
     else:
         raise Exception('Wrong model name!')
 
@@ -154,6 +157,7 @@ def train(train_loader, model, optimizer, model_input="hist"):
     for batch_idx, data in enumerate(tqdm(train_loader)):
         pm25, feature, time_arr = data
         pm25 = pm25.to(device)
+
         feature = feature.to(device)
         pm25_label = pm25[:, hist_len:]
         pm25_hist = pm25[:, :hist_len]
@@ -375,6 +379,9 @@ def main():
 
             if scheduler is not None:
                 scheduler.step()
+
+            if hasattr(model, 'alpha'):
+                wandb.log({'alpha': model.alpha.cpu()})
 
             print('train_loss: %.4f' % train_loss)
             print('val_loss: %.4f' % val_loss)
