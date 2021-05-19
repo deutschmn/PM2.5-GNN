@@ -14,7 +14,7 @@ experiments:
   compute_time: False
   save_npy: True
   dataset_num: 1
-  model: SplitGNN_4
+  model: SplitGNN_5
   
 node_gru_hidden_dim: 16
 edge_gru_hidden_dim: 64
@@ -30,7 +30,7 @@ train:
   early_stop: 5
   lr: 0.0005
   step_lr:
-    step_size: 10
+    step_size: 3
     gamma: 0.5
 
 device:
@@ -39,7 +39,7 @@ device:
     city_fp: ./data/city_DS2.txt
     altitude_fp: ./data/altitude.npy
     results_dir: ./data/results
-    torch_device: cuda:15
+    torch_device: cuda:6
 
 data:
   metero_var:
