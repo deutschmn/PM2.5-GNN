@@ -14,7 +14,7 @@ experiments:
   compute_time: False
   save_npy: True
   dataset_num: 1
-  model: SplitGNN_5
+  model: SplitGNN_3
   
 node_gru_hidden_dim: 16
 edge_gru_hidden_dim: 64
@@ -35,11 +35,11 @@ train:
 
 device:
   cuda04:
-    knowair_fp: ./data/KnowAir_DS2.npy
-    city_fp: ./data/city_DS2.txt
+    knowair_fp: ./data/KnowAir_DS2_perturbed.npy
+    city_fp: ./data/city_DS2_perturbed.txt
     altitude_fp: ./data/altitude.npy
     results_dir: ./data/results
-    torch_device: cuda:6
+    torch_device: cuda:2
 
 data:
   metero_var:
