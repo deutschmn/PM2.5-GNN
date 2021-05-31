@@ -1,7 +1,8 @@
 ---
 experiments:
-  metero_use: ['2m_temperature',
-               'boundary_layer_height', # Comment out for no_BPL experiments.
+  metero_use: [
+               '2m_temperature',
+               'boundary_layer_height',
                'relative_humidity+950',
                'surface_pressure',
                'total_precipitation',
@@ -19,6 +20,7 @@ experiments:
 node_gru_hidden_dim: 16
 edge_gru_hidden_dim: 64
 edge_mlp_hidden_dim: 16
+transfer_lag: 12
 
 train:
   batch_size: 32
@@ -35,8 +37,8 @@ train:
 
 device:
   cuda04:
-    knowair_fp: ./data/KnowAir_DS2_perturbed.npy
-    city_fp: ./data/city_DS2_perturbed.txt
+    knowair_fp: ./data/KnowAir_DS2.npy
+    city_fp: ./data/city_DS2.txt
     altitude_fp: ./data/altitude.npy
     results_dir: ./data/results
     torch_device: cuda:2

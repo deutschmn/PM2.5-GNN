@@ -1,3 +1,4 @@
+from model.SplitGNN_6 import SplitGNN_6
 import os
 import sys
 proj_dir = os.path.dirname(os.path.abspath(__file__))
@@ -28,6 +29,7 @@ import pickle
 import glob
 import shutil
 import wandb
+from sklearn.metrics import r2_score
 
 torch.set_num_threads(1)
 use_cuda = torch.cuda.is_available()
@@ -52,6 +54,7 @@ exp_model = config['experiments']['model']
 node_gru_hidden_dim = config['node_gru_hidden_dim']
 edge_gru_hidden_dim = config['edge_gru_hidden_dim']
 edge_mlp_hidden_dim = config['edge_mlp_hidden_dim']
+transfer_lag = config['transfer_lag']
 
 exp_repeat = config['train']['exp_repeat']
 save_npy = config['experiments']['save_npy']
@@ -88,7 +91,8 @@ def get_metric(predict_epoch, label_epoch):
     label = label.reshape((-1, label.shape[-1]))
     mae = np.mean(np.mean(np.abs(predict - label), axis=1))
     rmse = np.mean(np.sqrt(np.mean(np.square(predict - label), axis=1)))
-    return rmse, mae, csi, pod, far
+    r2 = r2_score(label, predict)
+    return rmse, mae, csi, pod, far, r2
 
 
 def get_exp_info():
@@ -135,6 +139,8 @@ def get_model():
         return TransferModel(hist_len, pred_len, in_dim, city_num, batch_size, device, graph.edge_index, graph.edge_attr, wind_mean, wind_std, edge_gru_hidden_dim, edge_mlp_hidden_dim, node_module)
     elif exp_model == 'SplitGNN_5':
         return SplitGNN_5(hist_len, pred_len, in_dim, city_num, batch_size, device, graph.edge_index, graph.edge_attr, wind_mean, wind_std, node_gru_hidden_dim, edge_gru_hidden_dim, edge_mlp_hidden_dim)
+    elif exp_model == 'SplitGNN_6':
+        return SplitGNN_6(hist_len, pred_len, in_dim, city_num, batch_size, device, graph.edge_index, graph.edge_attr, wind_mean, wind_std, node_gru_hidden_dim, edge_mlp_hidden_dim, transfer_lag)
     else:
         raise Exception('Wrong model name!')
 
@@ -174,7 +180,10 @@ def train(train_loader, model, optimizer, model_input="hist"):
         else:
             pm25_pred = out
 
-        loss = criterion(pm25_pred, pm25_label)
+        if hasattr(model, 'transfer_lag'):
+            loss = criterion(pm25_pred, pm25_label[:, model.transfer_lag:, :, :])
+        else:
+            loss = criterion(pm25_pred, pm25_label)
         wandb.log({'train_loss': loss})
         loss.backward()
         optimizer.step()
@@ -205,7 +214,10 @@ def val(val_loader, model, model_input="hist"):
         else:
             pm25_pred = out
 
-        loss = criterion(pm25_pred, pm25_label)
+        if hasattr(model, 'transfer_lag'):
+            loss = criterion(pm25_pred, pm25_label[:, model.transfer_lag:, :, :])
+        else:
+            loss = criterion(pm25_pred, pm25_label)
         val_loss += loss.item()
 
     val_loss /= batch_idx + 1
@@ -238,14 +250,21 @@ def test(test_loader, model, model_input="hist"):
         else:
             pm25_pred, R = out, torch.empty(0)
 
-        loss = criterion(pm25_pred, pm25_label)
+        if hasattr(model, 'transfer_lag'):
+            loss = criterion(pm25_pred, pm25_label[:, model.transfer_lag:, :, :])
+        else:
+            loss = criterion(pm25_pred, pm25_label)
         test_loss += loss.item()
 
         pm25_pred_val = np.concatenate([pm25_hist.cpu().detach().numpy(), pm25_pred.cpu().detach().numpy()], axis=1) * pm25_std + pm25_mean
         pm25_label_val = pm25.cpu().detach().numpy() * pm25_std + pm25_mean
         predict_list.append(pm25_pred_val)
-        label_list.append(pm25_label_val)
-        time_list.append(time_arr.cpu().detach().numpy())
+        if hasattr(model, 'transfer_lag'): 
+            label_list.append(pm25_label_val[:, model.transfer_lag:])
+            time_list.append(time_arr[:, model.transfer_lag:].cpu().detach().numpy())
+        else:
+            label_list.append(pm25_label_val)
+            time_list.append(time_arr.cpu().detach().numpy())
         R_list.append(R.cpu().detach().numpy())
 
     test_loss /= batch_idx + 1
@@ -305,9 +324,9 @@ def pre_train(model, exp_model_id, exp_model_group_id, train_loader, val_loader,
 
             test_loss, predict_epoch, label_epoch, time_epoch, R_epoch = test(test_loader, model, model_input="label")
             train_loss_, val_loss_ = train_loss, val_loss
-            rmse, mae, csi, pod, far = get_metric(predict_epoch, label_epoch)
+            rmse, mae, csi, pod, far, r2 = get_metric(predict_epoch, label_epoch)
             print('Train loss: %0.4f, Val loss: %0.4f, Test loss: %0.4f, RMSE: %0.2f, MAE: %0.2f, CSI: %0.4f, POD: %0.4f, FAR: %0.4f' % (train_loss_, val_loss_, test_loss, rmse, mae, csi, pod, far))
-            wandb.log({'epoch': epoch, 'test_loss': test_loss, 'rmse': rmse, 'mae': mae, 'csi': csi, 'pod': pod, 'far': far})
+            wandb.log({'epoch': epoch, 'test_loss': test_loss, 'rmse': rmse, 'mae': mae, 'csi': csi, 'pod': pod, 'far': far, 'r2': r2})
 
     run.finish()
 
@@ -399,9 +418,9 @@ def main():
 
                 test_loss, predict_epoch, label_epoch, time_epoch, R_epoch = test(test_loader, model)
                 train_loss_, val_loss_ = train_loss, val_loss
-                rmse, mae, csi, pod, far = get_metric(predict_epoch, label_epoch)
+                rmse, mae, csi, pod, far, r2 = get_metric(predict_epoch, label_epoch)
                 print('Train loss: %0.4f, Val loss: %0.4f, Test loss: %0.4f, RMSE: %0.2f, MAE: %0.2f, CSI: %0.4f, POD: %0.4f, FAR: %0.4f' % (train_loss_, val_loss_, test_loss, rmse, mae, csi, pod, far))
-                wandb.log({'epoch': epoch, 'test_loss': test_loss, 'rmse': rmse, 'mae': mae, 'csi': csi, 'pod': pod, 'far': far})
+                wandb.log({'epoch': epoch, 'test_loss': test_loss, 'rmse': rmse, 'mae': mae, 'csi': csi, 'pod': pod, 'far': far, 'r2': r2})
 
                 if save_npy:
                     np.save(os.path.join(exp_model_dir, 'predict.npy'), predict_epoch)
