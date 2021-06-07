@@ -15,7 +15,7 @@ experiments:
   compute_time: False
   save_npy: True
   dataset_num: 1
-  model: SplitGNN_3.1
+  model: SplitGNN_3.2
   
 node_gru_hidden_dim: 16
 edge_gru_hidden_dim: 64
