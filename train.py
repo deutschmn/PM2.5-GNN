@@ -31,7 +31,8 @@ import pickle
 import glob
 import shutil
 import wandb
-from sklearn.metrics import r2_score
+from sklearn.metrics import r2_score, mean_squared_error
+import matplotlib.pyplot as plt
 
 torch.set_num_threads(1)
 use_cuda = torch.cuda.is_available()
@@ -75,7 +76,7 @@ wind_mean, wind_std = train_data.wind_mean, train_data.wind_std
 pm25_mean, pm25_std = test_data.pm25_mean, test_data.pm25_std
 
 
-def get_metric(predict_epoch, label_epoch):
+def get_metric(predict_epoch, label_epoch, epoch):
     haze_threshold = 75
     predict_haze = predict_epoch >= haze_threshold
     predict_clear = predict_epoch < haze_threshold
@@ -93,8 +94,17 @@ def get_metric(predict_epoch, label_epoch):
     label = label.reshape((-1, label.shape[-1]))
     mae = np.mean(np.mean(np.abs(predict - label), axis=1))
     rmse = np.mean(np.sqrt(np.mean(np.square(predict - label), axis=1)))
+    rmse_regular = np.sqrt(np.mean(np.mean(np.square(predict - label), axis=1)))
     r2 = r2_score(label, predict)
-    return rmse, mae, csi, pod, far, r2
+
+    # plot R2 scatter
+    plt.figure(figsize=(10,10))
+    plt.scatter(label, predict, alpha=0.3, s=5)
+    plt.xlabel('true')
+    plt.ylabel('pred')
+    wandb.log({'epoch': epoch, 'r2_scatter': wandb.Image(plt)})
+
+    return rmse, rmse_regular, mae, csi, pod, far, r2
 
 
 def get_exp_info():
@@ -330,9 +340,9 @@ def pre_train(model, exp_model_id, exp_model_group_id, train_loader, val_loader,
 
             test_loss, predict_epoch, label_epoch, time_epoch, R_epoch = test(test_loader, model, model_input="label")
             train_loss_, val_loss_ = train_loss, val_loss
-            rmse, mae, csi, pod, far, r2 = get_metric(predict_epoch, label_epoch)
+            rmse, rmse_regular, mae, csi, pod, far, r2 = get_metric(predict_epoch, label_epoch, epoch)
             print('Train loss: %0.4f, Val loss: %0.4f, Test loss: %0.4f, RMSE: %0.2f, MAE: %0.2f, CSI: %0.4f, POD: %0.4f, FAR: %0.4f' % (train_loss_, val_loss_, test_loss, rmse, mae, csi, pod, far))
-            wandb.log({'epoch': epoch, 'test_loss': test_loss, 'rmse': rmse, 'mae': mae, 'csi': csi, 'pod': pod, 'far': far, 'r2': r2})
+            wandb.log({'epoch': epoch, 'test_loss': test_loss, 'rmse': rmse, 'rmse_regular': rmse_regular, 'mae': mae, 'csi': csi, 'pod': pod, 'far': far, 'r2': r2})
 
     run.finish()
 
@@ -424,9 +434,9 @@ def main():
 
                 test_loss, predict_epoch, label_epoch, time_epoch, R_epoch = test(test_loader, model)
                 train_loss_, val_loss_ = train_loss, val_loss
-                rmse, mae, csi, pod, far, r2 = get_metric(predict_epoch, label_epoch)
+                rmse, rmse_regular, mae, csi, pod, far, r2 = get_metric(predict_epoch, label_epoch, epoch)
                 print('Train loss: %0.4f, Val loss: %0.4f, Test loss: %0.4f, RMSE: %0.2f, MAE: %0.2f, CSI: %0.4f, POD: %0.4f, FAR: %0.4f' % (train_loss_, val_loss_, test_loss, rmse, mae, csi, pod, far))
-                wandb.log({'epoch': epoch, 'test_loss': test_loss, 'rmse': rmse, 'mae': mae, 'csi': csi, 'pod': pod, 'far': far, 'r2': r2})
+                wandb.log({'epoch': epoch, 'test_loss': test_loss, 'rmse': rmse, 'rmse_regular': rmse_regular, 'mae': mae, 'csi': csi, 'pod': pod, 'far': far, 'r2': r2})
 
                 if save_npy:
                     np.save(os.path.join(exp_model_dir, 'predict.npy'), predict_epoch)
