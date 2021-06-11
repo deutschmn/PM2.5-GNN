@@ -22,6 +22,10 @@ edge_gru_hidden_dim: 64
 edge_mlp_hidden_dim: 16
 transfer_lag: 12
 
+# regularize R activations
+r_reg_lambda: 0 # set to 0 to disable
+r_reg_norm: 1
+
 train:
   batch_size: 32
   epochs: 30

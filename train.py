@@ -195,14 +195,16 @@ def train(train_loader, model, optimizer, model_input="hist"):
             raise RuntimeError(f"Unknown model input type '{model_input}'")
 
         if hasattr(model, 'returns_r') and model.returns_r:
-            pm25_pred, _ = out
+            pm25_pred, R = out
         else:
-            pm25_pred = out
+            pm25_pred, R = out, torch.empty(0)
+
+        loss = config.r_reg_lambda * torch.norm(R, config.r_reg_norm)
 
         if hasattr(model, 'transfer_lag'):
-            loss = criterion(pm25_pred, pm25_label[:, model.transfer_lag:, :, :])
+            loss += criterion(pm25_pred, pm25_label[:, model.transfer_lag:, :, :])
         else:
-            loss = criterion(pm25_pred, pm25_label)
+            loss += criterion(pm25_pred, pm25_label)
         wandb.log({'train_loss': loss})
         loss.backward()
         optimizer.step()
@@ -229,14 +231,16 @@ def val(val_loader, model, model_input="hist"):
             raise RuntimeError(f"Unknown model input type '{model_input}'")
 
         if hasattr(model, 'returns_r') and model.returns_r:
-            pm25_pred, _ = out
+            pm25_pred, R = out
         else:
-            pm25_pred = out
+            pm25_pred, R = out, torch.empty(0)
+
+        loss = config.r_reg_lambda * torch.norm(R, config.r_reg_norm)
 
         if hasattr(model, 'transfer_lag'):
-            loss = criterion(pm25_pred, pm25_label[:, model.transfer_lag:, :, :])
+            loss += criterion(pm25_pred, pm25_label[:, model.transfer_lag:, :, :])
         else:
-            loss = criterion(pm25_pred, pm25_label)
+            loss += criterion(pm25_pred, pm25_label)
         val_loss += loss.item()
 
     val_loss /= batch_idx + 1
@@ -269,10 +273,12 @@ def test(test_loader, model, model_input="hist"):
         else:
             pm25_pred, R = out, torch.empty(0)
 
+        loss = config.r_reg_lambda * torch.norm(R, config.r_reg_norm)
+
         if hasattr(model, 'transfer_lag'):
-            loss = criterion(pm25_pred, pm25_label[:, model.transfer_lag:, :, :])
+            loss += criterion(pm25_pred, pm25_label[:, model.transfer_lag:, :, :])
         else:
-            loss = criterion(pm25_pred, pm25_label)
+            loss += criterion(pm25_pred, pm25_label)
         test_loss += loss.item()
 
         pm25_pred_val = np.concatenate([pm25_hist.cpu().detach().numpy(), pm25_pred.cpu().detach().numpy()], axis=1) * pm25_std + pm25_mean
