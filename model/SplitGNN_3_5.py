@@ -6,7 +6,9 @@ import numpy as np
 from torch.nn import functional as F
 
 class SplitGNN_3_5(nn.Module):
-    def __init__(self, hist_len, pred_len, in_dim, city_num, batch_size, device, edge_index, edge_attr, wind_mean, wind_std, node_gru_hidden_dim, edge_gru_hidden_dim, edge_mlp_hidden_dim):
+    def __init__(self, hist_len, pred_len, in_dim, city_num, batch_size, device, edge_index, 
+                edge_attr, wind_mean, wind_std, node_gru_hidden_dim, 
+                edge_gru_hidden_dim, edge_mlp_hidden_dim, disabled_stations, force_self_focus):
         super(SplitGNN_3_5, self).__init__()
 
         self.returns_r = True
@@ -14,6 +16,8 @@ class SplitGNN_3_5(nn.Module):
         self.device = device
         self.hist_len = hist_len
         self.pred_len = pred_len
+        self.disabled_stations = disabled_stations
+        self.force_self_focus = force_self_focus
 
         self.edge_index = torch.LongTensor(edge_index).to(self.device)
         
@@ -117,6 +121,17 @@ class SplitGNN_3_5(nn.Module):
             en_reshaped = en.view(self.batch_size, self.num_edges, self.edge_gru_hidden_dim)
             en_rep = self.edge_mlp(en_reshaped).squeeze()
             R = self.restructure_edges(en_rep)
+
+            # forces the influence of stations on themselves to set value
+            if self.force_self_focus is not None:
+                R[:, range(self.num_nodes), range(self.num_nodes)] = self.force_self_focus
+
+            # disable influence of stations in disabled_stations during val and test to see
+            # what the network would predict, if these stations wouldn't have any influence anymore
+            if not self.training and self.disabled_stations is not None:
+                for i in self.disabled_stations:
+                    R[:, :, i] = 0
+
             R_list.append(R)
 
             # compute local phenomena

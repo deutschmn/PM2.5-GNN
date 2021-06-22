@@ -23,8 +23,22 @@ edge_mlp_hidden_dim: 16
 transfer_lag: 12
 
 # regularize R activations
-r_reg_lambda: 0 # set to 0 to disable
+r_reg_lambda: 0.000001 # set to 0 to disable
 r_reg_norm: 1
+
+# indices of the stations whose influence should be set to 0 during testing (for what-if-analysis)
+disabled_stations:
+  #- 0 # 1029A
+  #- 1 # 1037A
+  #- 2 # 1046A
+  #- 3 # 1056A
+  #- 4 # 1061A
+  #- 5 # 1065A
+  #- 6 # 1068A
+  #- 7 # 1072A
+  - 9 # daxing
+
+force_self_focus: 1
 
 train:
   batch_size: 32
@@ -45,7 +59,7 @@ device:
     city_fp: ./data/city_DS2.txt
     altitude_fp: ./data/altitude.npy
     results_dir: ./data/results
-    torch_device: cuda:2
+    torch_device: ~
 
 data:
   metero_var:

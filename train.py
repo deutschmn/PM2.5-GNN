@@ -37,9 +37,13 @@ import wandb
 from sklearn.metrics import r2_score, mean_squared_error
 import matplotlib.pyplot as plt
 
+import autogpu
+
 torch.set_num_threads(1)
 use_cuda = torch.cuda.is_available()
-device = torch.device(config['device'][os.uname().nodename]['torch_device'])
+
+device_conf = config['device'][os.uname().nodename]['torch_device']
+device = torch.device(device_conf) if device_conf else autogpu.freest()
 
 graph = Graph()
 city_num = graph.node_num
@@ -61,6 +65,8 @@ node_gru_hidden_dim = config['node_gru_hidden_dim']
 edge_gru_hidden_dim = config['edge_gru_hidden_dim']
 edge_mlp_hidden_dim = config['edge_mlp_hidden_dim']
 transfer_lag = config['transfer_lag']
+disabled_stations = config['disabled_stations']
+force_self_focus = config['force_self_focus']
 
 exp_repeat = config['train']['exp_repeat']
 save_npy = config['experiments']['save_npy']
@@ -158,7 +164,7 @@ def get_model():
     elif exp_model == 'SplitGNN_3.4':
         return SplitGNN_3_4(hist_len, pred_len, in_dim, city_num, batch_size, device, graph.edge_index, graph.edge_attr, wind_mean, wind_std, node_gru_hidden_dim, edge_gru_hidden_dim, edge_mlp_hidden_dim)
     elif exp_model == 'SplitGNN_3.5':
-        return SplitGNN_3_5(hist_len, pred_len, in_dim, city_num, batch_size, device, graph.edge_index, graph.edge_attr, wind_mean, wind_std, node_gru_hidden_dim, edge_gru_hidden_dim, edge_mlp_hidden_dim)
+        return SplitGNN_3_5(hist_len, pred_len, in_dim, city_num, batch_size, device, graph.edge_index, graph.edge_attr, wind_mean, wind_std, node_gru_hidden_dim, edge_gru_hidden_dim, edge_mlp_hidden_dim, disabled_stations, force_self_focus)
     elif exp_model == 'SplitGNN_4':
         node_module = OracleModel(node_gru_hidden_dim, city_num, batch_size, device)
         return TransferModel(hist_len, pred_len, in_dim, city_num, batch_size, device, graph.edge_index, graph.edge_attr, wind_mean, wind_std, edge_gru_hidden_dim, edge_mlp_hidden_dim, node_module)
@@ -205,7 +211,7 @@ def train(train_loader, model, optimizer, model_input="hist"):
         else:
             pm25_pred, R = out, torch.empty(0)
 
-        loss = config.r_reg_lambda * torch.norm(R, config.r_reg_norm)
+        loss = config.r_reg_lambda * torch.norm(R, config.r_reg_norm).to(device)
 
         if hasattr(model, 'transfer_lag'):
             loss += criterion(pm25_pred, pm25_label[:, model.transfer_lag:, :, :])
@@ -241,7 +247,7 @@ def val(val_loader, model, model_input="hist"):
         else:
             pm25_pred, R = out, torch.empty(0)
 
-        loss = config.r_reg_lambda * torch.norm(R, config.r_reg_norm)
+        loss = config.r_reg_lambda * torch.norm(R, config.r_reg_norm).to(device)
 
         if hasattr(model, 'transfer_lag'):
             loss += criterion(pm25_pred, pm25_label[:, model.transfer_lag:, :, :])
@@ -279,7 +285,7 @@ def test(test_loader, model, model_input="hist"):
         else:
             pm25_pred, R = out, torch.empty(0)
 
-        loss = config.r_reg_lambda * torch.norm(R, config.r_reg_norm)
+        loss = config.r_reg_lambda * torch.norm(R, config.r_reg_norm).to(device)
 
         if hasattr(model, 'transfer_lag'):
             loss += criterion(pm25_pred, pm25_label[:, model.transfer_lag:, :, :])
